@@ -1,0 +1,159 @@
+SUBROUTINE BC_Symm(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend, Ixyz, sweep,IJK,minormax)
+!Ixyz:     Kindsub_BC
+    USE Global
+    IMPLICIT NONE
+    
+    INTEGER:: Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+    INTEGER:: Ixyz
+    INTEGER:: Kindsub_BC
+    INTEGER:: sweep
+    INTEGER:: IJK, MinorMax
+    INTEGER:: I,J,K,L
+    REAL::sign_u,sign_v,sign_w
+    
+    INTEGER:: I_L0,I_L1,I_L2
+    INTEGER:: J_L0,J_L1,J_L2
+    INTEGER:: K_L0,K_L1,K_L2
+    INTEGER:: I_R0,I_R1,I_R2
+    INTEGER:: J_R0,J_R1,J_R2
+    INTEGER:: K_R0,K_R1,K_R2
+
+    INTEGER:: I_VL0,J_VL0,K_VL0
+    INTEGER:: I_VR0,I_VR1
+    INTEGER:: J_VR0,J_VR1
+    INTEGER:: K_VR0,K_VR1
+
+    REAL:: Sout1,Sout2,Sout3    
+    REAL:: Den,Vxi,Vyi,Vzi
+    REAL:: Vc1
+   
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	  Symmetry B.C.							!
+!	  Ixyz:									!
+!		1:  xy plane						!
+!		2:  xz plane						!
+!		3:  yz plane						!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    if(sweep==-2)then
+        DO K=Kbgn,Kend
+        DO J=Jbgn,Jend
+        DO I=Ibgn,Iend
+
+            CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2, &
+            &         I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+        
+               Vol(I_l0,J_l0,K_l0)=Vol(I_r0,J_r0,K_r0) 
+               Dst(I_l0,J_l0,K_l0)=Dst(I_r0,J_r0,K_r0) 
+               Alagm(IJK,I_l0,J_l0,K_l0)=Alagm(IJK,I_r0,J_r0,K_r0) 
+               Vol(I_l1,J_l1,K_l1)=Vol(I_r0,J_r0,K_r0) 
+               Dst(I_l1,J_l1,K_l1)=Dst(I_r0,J_r0,K_r0) 
+               Alagm(IJK,I_l1,J_l1,K_l1)=Alagm(IJK,I_r0,J_r0,K_r0)
+ 
+                rad(I_l0,J_l0,K_l0)=2.0*rad(I_r0,J_r0,K_r0)-rad(I_r1,J_r1,K_r1)
+                rad(I_l1,J_l1,K_l1)=2.0*rad(I_l0,J_l0,K_l0)-rad(I_r0,J_r0,K_r0)
+                rad(I_l2,J_l2,K_l2)=2.0*rad(I_l1,J_l1,K_l1)-rad(I_l0,J_l0,K_l0)
+                thtc(I_l0,J_l0,K_l0)=2.0*thtc(I_r0,J_r0,K_r0)-thtc(I_r1,J_r1,K_r1)
+                thtc(I_l1,J_l1,K_l1)=2.0*thtc(I_l0,J_l0,K_l0)-thtc(I_r0,J_r0,K_r0)
+                thtc(I_l2,J_l2,K_l2)=2.0*thtc(I_l1,J_l1,K_l1)-thtc(I_l0,J_l0,K_l0)
+                do L=1,3        
+                    SD(IJK,L,I_VL0,J_VL0,K_VL0)=2.0*SD(IJK,L,I_VR0,J_VR0,K_VR0)-SD(IJK,L,I_VR1,J_VR1,K_VR1)
+                enddo
+        enddo
+        enddo
+        enddo
+      elseif(sweep==-1)then
+        do K=Kbgn,Kend
+        do J=Jbgn,Jend
+        do I=Ibgn,Iend
+
+            CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,    &
+            &            I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1,   &
+            &            I,J,K,  IJK,MinorMax)
+
+
+            Sout1 = SD(IJK,1,I_VR0,J_VR0,K_VR0)/(Grad(IJK,I_VR0,J_VR0,K_VR0))
+            Sout2 = SD(IJK,2,I_VR0,J_VR0,K_VR0)/(Grad(IJK,I_VR0,J_VR0,K_VR0))
+            Sout3 = SD(IJK,3,I_VR0,J_VR0,K_VR0)/(Grad(IJK,I_VR0,J_VR0,K_VR0))
+        
+            Den=V(1, I_R0 , J_R0 , K_R0)
+            Vxi=V(2, I_R0 , J_R0 , K_R0) / Den
+            Vyi=V(3, I_R0 , J_R0 , K_R0) / Den
+            Vzi=V(4, I_R0 , J_R0 , K_R0) / Den
+
+            Vc1  = Vxi*Sout1+Vyi*Sout2+Vzi*Sout3
+
+!higer order BCs for centered scheme,by dzw05,20121113
+!	       Den=V(1, I_R0 , J_R0 , K_R0)
+!           Vxi=V(2, I_R0 , J_R0 , K_R0) / Den
+!           Vyi=V(3, I_R0 , J_R0 , K_R0) / Den
+!           Vzi=V(4, I_R0 , J_R0 , K_R0) / Den
+
+!	     Vc1  = Vxi*Sout1+Vyi*Sout2+Vzi*Sout3  !contravariant velocity
+        
+            V(1,I_l0,J_l0,K_l0 ) = V(1,I_r0,J_r0,K_r0) 
+            V(2,I_l0,J_l0,K_l0 ) = V(2,I_r0,J_r0,K_r0) -2* Sout1* Vc1* V(1,I_r0,J_r0,K_r0)
+            V(3,I_l0,J_l0,K_l0 ) = V(3,I_r0,J_r0,K_r0) -2* Sout2* Vc1* V(1,I_r0,J_r0,K_r0)
+            V(4,I_l0,J_l0,K_l0 ) = V(4,I_r0,J_r0,K_r0) -2* Sout3* Vc1* V(1,I_r0,J_r0,K_r0)
+            V(5,I_l0,J_l0,K_l0 ) = V(5,I_r0,J_r0,K_r0)
+            PP(I_l0,J_l0,K_l0 ) = PP(I_r0,J_r0,K_r0)
+            T(I_l0,J_l0,K_l0 ) = T(I_r0,J_r0,K_r0)
+
+            V(2,I_l1,J_l1,K_l1 ) = V(2,I_r1,J_r1,K_r1)-2* Sout1* Vc1* V(1,I_r1,J_r1,K_r1)
+            V(3,I_l1,J_l1,K_l1 ) = V(3,I_r1,J_r1,K_r1)-2* Sout2* Vc1* V(1,I_r1,J_r1,K_r1)
+            V(4,I_l1,J_l1,K_l1 ) = V(4,I_r1,J_r1,K_r1)-2* Sout3* Vc1* V(1,I_r1,J_r1,K_r1)
+            V(5,I_l1,J_l1,K_l1 ) = V(5,I_r1,J_r1,K_r1)
+            PP(I_l1,J_l1,K_l1 ) = PP(I_r1,J_r1,K_r1)
+            T(I_l1,J_l1,K_l1 ) = T(I_r1,J_r1,K_r1)
+!	       Den=V(1, I_R2 , J_R2 , K_R2)
+!           Vxi=V(2, I_R2 , J_R2 , K_R2) / Den
+!           Vyi=V(3, I_R2 , J_R2 , K_R2) / Den
+!           Vzi=V(4, I_R2 , J_R2 , K_R2) / Den
+!           Vc1  = Vxi*Sout1+Vyi*Sout2+Vzi*Sout3  !contravariant velocity
+        
+            V(1,I_l2,J_l2,K_l2 ) = V(1,I_r2,J_r2,K_r2)
+            V(2,I_l2,J_l2,K_l2 ) = V(2,I_r2,J_r2,K_r2)-2* Sout1* Vc1* V(1,I_r2,J_r2,K_r2)
+            V(3,I_l2,J_l2,K_l2 ) = V(3,I_r2,J_r2,K_r2)-2* Sout2* Vc1* V(1,I_r2,J_r2,K_r2)
+            V(4,I_l2,J_l2,K_l2 ) = V(4,I_r2,J_r2,K_r2)-2* Sout3* Vc1* V(1,I_r2,J_r2,K_r2)
+            V(5,I_l2,J_l2,K_l2 ) = V(5,I_r2,J_r2,K_r2)
+            PP(I_l2,J_l2,K_l2 ) = PP(I_r2,J_r2,K_r2)
+            T(I_l2,J_l2,K_l2 ) = T(I_r2,J_r2,K_r2)
+
+            if(IF_turb)then
+                V(6,I_l0,J_l0,K_l0)=V(6,I_r0,J_r0,K_r0)
+                V(7,I_l0,J_l0,K_l0)=V(7,I_r0,J_r0,K_r0)
+                Rmiu(I_l0,J_l0,K_l0)=Rmiu(I_r0,J_r0,K_r0)
+                V(6,I_l1,J_l1,K_l1)=V(6,I_r0,J_r0,K_r0)
+                V(7,I_l1,J_l1,K_l1)=V(7,I_r0,J_r0,K_r0)
+                Rmiu(I_l1,J_l1,K_l1)=Rmiu(I_r0,J_r0,K_r0)
+            endif
+        enddo
+        enddo
+        enddo
+    elseif(sweep==0)then
+        do K=Kbgn,Kend
+        do J=Jbgn,Jend
+        do I=Ibgn,Iend
+            CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,    &
+            &            I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1,I,J,K,  IJK,MinorMax)
+
+            do L=1,18
+                DqDxyz(L,I_l0,J_l0,K_l0)=DqDxyz(L,I_r0,J_r0,K_r0)
+            enddo
+        enddo
+        enddo
+        enddo
+    endif
+!!!!!!
+!	IF ((sweep == 0).or.(sweep == 2)) THEN      !by ydd
+!		VL(IJK, 1, I_VR0,J_VR0,K_VR0) = Vxi - Vc1*Sout1 !vx
+!		VL(IJK, 2, I_VR0,J_VR0,K_VR0) = Vyi - Vc1*Sout2
+!		VL(IJK, 3, I_VR0,J_VR0,K_VR0) = Vzi - Vc1*Sout3
+
+!		VL(IJK, 4, I_VR0,J_VR0,K_VR0) = PP(I_R0,J_R0,K_R0)  !p
+!		VL(IJK, 5, I_VR0,J_VR0,K_VR0) = T(I_R0,J_R0,K_R0)  !T
+
+END SUBROUTINE BC_Symm
+
+
+

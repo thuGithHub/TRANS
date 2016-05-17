@@ -1,0 +1,403 @@
+SUBROUTINE BC_P2P( Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, iBlock_r, Ib_r, Ie_r, Jb_r, Je_r, Kb_r,&
+        &        Ke_r, IF_lcross,IF_adv_1,IF_adv_2,sweep,IJK,minormax,IF_period)
+    USE Global
+    IMPLICIT NONE
+    
+    INTEGER:: Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+    INTEGER:: iBlock_r
+    INTEGER:: Ib_r, Ie_r, Jb_r, Je_r, Kb_r, Ke_r
+    INTEGER:: IF_lcross,  IF_adv_1,   IF_adv_2   
+    
+    INTEGER:: sweep,IF_Period
+    INTEGER:: IJK, MinorMax
+    real::out_n,out_n_r
+
+    INTEGER:: I,J,K,L
+
+    INTEGER:: IJK_l, MinorMax_l
+    INTEGER:: IJK_r, MinorMax_r
+
+
+    INTEGER:: I_L0,I_L1,I_L2
+    INTEGER:: J_L0,J_L1,J_L2
+    INTEGER:: K_L0,K_L1,K_L2
+    INTEGER:: I_R0,I_R1,I_R2
+    INTEGER:: J_R0,J_R1,J_R2
+    INTEGER:: K_R0,K_R1,K_R2
+    
+    INTEGER:: I_R0_r, J_R0_r, K_R0_r
+    INTEGER::  I_R1_r, J_R1_r, K_R1_r
+    INTEGER::  I_R2_r, J_R2_r, K_R2_r
+
+    INTEGER:: I_VL0,J_VL0,K_VL0
+    INTEGER:: I_VR0,I_VR1
+    INTEGER:: J_VR0,J_VR1
+    INTEGER:: K_VR0,K_VR1
+
+    INTEGER:: I_VL0_r,J_VL0_r,K_VL0_r
+    INTEGER:: I_VR0_r,I_VR1_r
+    INTEGER:: J_VR0_r,J_VR1_r
+    INTEGER:: K_VR0_r,K_VR1_r
+
+    INTEGER:: DIR_l,DIR_r,DIR_rstep !for rds exchange
+    
+
+    TYPE(BlockStruct), POINTER:: Block_r
+    REAL, POINTER:: V_r(:,:,:,:)
+    REAL, POINTER:: PP_r(:,:,:), T_r(:,:,:), Rmiu_r(:,:,:)
+    REAL, POINTER:: Rds_r(:,:,:,:)
+    REAL, POINTER:: dQdxyz_r(:,:,:,:)
+    REAL, POINTER:: Shock_r(:,:,:)
+    REAL, POINTER:: VL_r(:,:,:,:,:)
+    REAL, POINTER:: Vol_r(:,:,:), Dst_r(:,:,:)
+    REAL, POINTER:: Alagm_r(:,:,:,:)
+    REAL, POINTER:: SD_r(:,:,:,:,:)
+    real,pointer::thtc_r(:,:,:)
+    real,pointer::thtf_r(:,:,:,:)
+    real,pointer::rad_r(:,:,:)
+
+    real::thta_r,thta_l,sinr,cosr,sinl,cosl,Vr_r,Vth_r,rrad,lrad,dQdr,dQdth
+    integer::LL
+    real::dstage,sint,cost,sin2t,cos2t,sct,ugx,ugy,ugz,vgx,vgy,vgz,wgx,wgy,wgz
+
+    Block_r => AllBlocks(iBlock_r)
+    V_r => Block_r%V
+    PP_r => Block_r%PP
+    T_r => Block_r%T
+    Rmiu_r => Block_r%Rmiu
+
+    Rds_r => Block_r%Rds
+
+    dQdxyz_r => Block_r%dQdxyz
+    shock_r =>  Block_r%shock
+    VL_r => Block_r%VL
+    Vol_r => Block_r%Vol
+    Dst_r => Block_r%Dst
+    Alagm_r => Block_r%Alagm
+    SD_r => Block_r%SD
+    thtc_r=>Block_r%thtc
+    thtf_r=>Block_r%thtf
+    rad_r=>Block_r%rad
+    dstage=real(IF_Period)*2.0*Pi/real(nblade)
+    sint=sin(dstage)
+    cost=cos(dstage)
+    cos2t=cost*cost
+    sin2t=sint*sint
+    sct=sint*cost
+
+        IJK_l      = IJK
+        MinorMax_l = MinorMax
+    call BC_NormDir(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,Out_n)
+    call BC_NormDir(Ib_r,Je_r,Jb_r,Je_r,Kb_r,Ke_r,Out_n_r)
+
+        CALL VBC_SETrIJK(Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r,   IJK_r,MinorMax_r)
+            
+    if(IF_period==0)then
+        if(sweep==-2)then      
+
+                do k=kbgn,kend
+                do j=jbgn,jend
+                do i=ibgn,iend
+                    CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                    &   I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0,I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+                    CALL VBC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R,Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, Ib_r,&
+                    &    Ie_r, Jb_r, Je_r, Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2,I_R0_r, J_R0_r, K_R0_r,&
+                    &    I_R1_r, J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r,I_VL0_r, J_VL0_r, K_VL0_r,  I_VR0_r, &
+                    &    J_VR0_r, K_VR0_r, I_VR1_r, J_VR1_r, K_VR1_r)
+
+                    Vol(I_l0,J_l0,K_l0)=Vol_r(I_R0_r,J_R0_r,K_R0_r)
+                    Vol(I_l1,J_l1,K_l1)=Vol_r(I_R1_r,J_R1_r,K_R1_r)
+                    Dst(I_l0,J_l0,K_l0)=Dst_r(I_R0_r,J_R0_r,K_R0_r)
+                    Dst(I_l1,J_l1,K_l1)=Dst_r(I_R1_r,J_R1_r,K_R1_r)
+                    Alagm(IJK_l,I_l0,J_l0,K_l0)=Alagm_r(IJK_r,I_R0_r,J_R0_r,K_R0_r)
+                    Alagm(IJK_l,I_l1,J_l1,K_l1)=Alagm_r(IJK_r,I_R1_r,J_R1_r,K_R1_r)
+                    rad(I_l0,J_l0,K_l0)=rad_r(I_r0_r,J_r0_r,K_r0_r)
+                    rad(I_l1,J_l1,K_l1)=rad_r(I_r1_r,J_r1_r,K_r1_r)
+                    rad(I_l2,J_l2,K_l2)=rad_r(I_r2_r,J_r2_r,K_r2_r)
+
+                    thtc(I_l0,J_l0,K_l0)=thtc_r(I_r0_r,J_r0_r,K_r0_r)
+                    thtc(I_l1,J_l1,K_l1)=thtc_r(I_r1_r,J_r1_r,K_r1_r)
+                    thtc(I_l2,J_l2,K_l2)=thtc_r(I_r2_r,J_r2_r,K_r2_r)
+                    do L=1,3
+                        SD(IJK_l,L,I_VL0,J_VL0,K_VL0)=-1.0*out_n*out_n_r*SD_r(IJK_r,L,I_VR1_r,J_VR1_r,K_VR1_r)
+                    enddo
+!if(ThisBlock%ID_Present_blk==4) write(*,*)'p2p-2',KI,ijk_l,ijk_r,I_vl0,J_vl0,K_vl0,SD_r(IJK_r,L,I_VR1_r,J_VR1_r,K_VR1_r),out_n,out_n_r
+                enddo
+                enddo
+                enddo
+        
+        elseif(sweep==-1)then        
+            DO K=Kbgn,Kend
+            DO J=Jbgn,Jend
+            DO I=Ibgn,Iend
+!		 right side								!
+                CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,&
+                &   J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0, I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,   &
+                &   I,J,K,  IJK,MinorMax)
+
+                CALL VBC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R, Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, &
+                &   Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r,IF_lcross,IF_adv_1,IF_adv_2,I_R0_r, J_R0_r, K_R0_r,I_R1_r,&
+                &   J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r,I_VL0_r, J_VL0_r, K_VL0_r,  I_VR0_r, J_VR0_r,&
+                &   K_VR0_r, I_VR1_r, J_VR1_r, K_VR1_r)
+                
+                V(1,I_l0,  J_l0,  K_l0) = V_r(1,I_R0_r,  J_R0_r,  K_R0_r)
+                V(2,I_l0,  J_l0,  K_l0) = V_r(2,I_R0_r,  J_R0_r,  K_R0_r)
+                V(3,I_l0,J_l0,K_l0)=V_r(3,I_r0_r,J_r0_r,K_r0_r)*cost+V_r(4,I_r0_r,J_r0_r,K_r0_r)*sint
+                V(4,I_l0,J_l0,K_l0)=-V_r(3,I_r0_r,J_r0_r,K_r0_r)*sint+V_r(4,I_r0_r,J_r0_r,K_r0_r)*cost
+                V(5,I_l0,  J_l0,  K_l0) = V_r(5,I_R0_r,  J_R0_r,  K_R0_r)
+                PP(I_l0,  J_l0,  K_l0) = PP_r(I_R0_r,  J_R0_r,  K_R0_r)
+                T(I_l0,  J_l0,  K_l0) = T_r(I_R0_r,  J_R0_r,  K_R0_r)
+
+                V(1,I_L1,  J_L1,  K_L1) = V_r(1,I_R1_r,  J_R1_r,  K_R1_r)   !dzw05,20121113
+                V(2,I_L1,  J_L1,  K_L1) = V_r(2,I_R1_r,  J_R1_r,  K_R1_r)
+                V(3,I_l1,J_l1,K_l1)=V_r(3,I_r1_r,J_r1_r,K_r1_r)*cost+V_r(4,I_r1_r,J_r1_r,K_r1_r)*sint
+                V(4,I_l1,J_l1,K_l1)=-V_r(3,I_r1_r,J_r1_r,K_r1_r)*sint+V_r(4,I_r1_r,J_r1_r,K_r1_r)*cost
+                V(5,I_L1,  J_L1,  K_L1) = V_r(5,I_R1_r,  J_R1_r,  K_R1_r)
+                PP(I_L1,  J_L1,  K_L1) =PP_r(I_R1_r,  J_R1_r,  K_R1_r)
+                T(I_L1,  J_L1,  K_L1) = T_r(I_R1_r,  J_R1_r,  K_R1_r)
+        
+                V(1,I_L2,  J_L2,  K_L2) = V_r(1,I_R2_r,  J_R2_r,  K_R2_r)
+                V(2,I_L2,  J_L2,  K_L2) = V_r(2,I_R2_r,  J_R2_r,  K_R2_r)
+                V(3,I_l2,J_l2,K_l2)=V_r(3,I_r2_r,J_r2_r,K_r2_r)*cost+V_r(4,I_r2_r,J_r2_r,K_r2_r)*sint
+                V(4,I_l2,J_l2,K_l2)=-V_r(3,I_r2_r,J_r2_r,K_r2_r)*sint+V_r(4,I_r2_r,J_r2_r,K_r2_r)*cost
+                V(5,I_L2,  J_L2,  K_L2) = V_r(5,I_R2_r,  J_R2_r,  K_R2_r)
+                PP(I_L2,  J_L2,  K_L2) =PP_r(I_R2_r,  J_R2_r,  K_R2_r)
+                T(I_L2,  J_L2,  K_L2) = T_r(I_R2_r,  J_R2_r,  K_R2_r)
+    !p2p direction match
+                DIR_l = IJK_l
+                DIR_r = IJK_r
+                DO L=1,3
+                    DIR_l = 1+MOD(DIR_l + 2**(IJK_l-1) -1,3)
+                    DIR_rstep = MOD(2**(IJK_r-1) -1, 3) !0 or 1
+                    DIR_rstep = IF_lcross + (-IF_lcross)*DIR_rstep !0,1 exchange
+                    DIR_r = 1+MOD(DIR_r + DIR_rstep,3)
+                    !DIR_r = 1+MOD(DIR_l + IF_lcross*2**(IJK_r-1) -1+9,3)
+                    Rds(DIR_l,I_l0,  J_l0,  K_l0)= Rds_r(DIR_r,I_R0_r,  J_R0_r,  K_R0_r) !right?
+                    !Rds(1,I_l0,  J_l0,  K_l0)= Rds_r(1,I_R0_r,  J_R0_r,  K_R0_r) !right?
+                    !Rds(2,I_l0,  J_l0,  K_l0)= Rds_r(2,I_R0_r,  J_R0_r,  K_R0_r) 
+                    !Rds(3,I_l0,  J_l0,  K_l0)= Rds_r(3,I_R0_r,  J_R0_r,  K_R0_r)
+                ENDDO
+      !turb
+                V(6,I_l0,  J_l0,  K_l0) = V_r(6,I_R0_r,  J_R0_r,  K_R0_r)
+                V(7,I_l0,  J_l0,  K_l0) = V_r(7,I_R0_r,  J_R0_r,  K_R0_r)
+                Rmiu(I_l0,  J_l0,  K_l0) = Rmiu_r(I_R0_r,  J_R0_r,  K_R0_r)
+                V(6,I_l1,  J_l1,  K_l1) = V_r(6,I_R1_r,  J_R1_r,  K_R1_r)
+                V(7,I_l1,  J_l1,  K_l1) = V_r(7,I_R1_r,  J_R1_r,  K_R1_r)
+                Rmiu(I_l1,  J_l1,  K_l1) = Rmiu_r(I_R1_r,  J_R1_r,  K_R1_r)
+                V(6,I_l2,  J_l2,  K_l2) = V_r(6,I_R2_r,  J_R2_r,  K_R2_r)
+                V(7,I_l2,  J_l2,  K_l2) = V_r(7,I_R2_r,  J_R2_r,  K_R2_r)
+                Rmiu(I_l2, J_l2,  K_l2) = Rmiu_r(I_R2_r, J_R2_r,  K_R2_r)
+        
+                Shock(I_l0,J_l0,K_l0)=Shock_r(I_R0_r,  J_R0_r,  K_R0_r)
+                Shock(I_l1,J_l1,K_l1)=Shock_r(I_R1_r,  J_R1_r,  K_R1_r)
+                Shock(I_l2,J_l2,K_l2)=Shock_r(I_R2_r,  J_R2_r,  K_R2_r)
+            enddo
+            enddo
+            enddo
+        elseif(sweep==0)then
+            do K=Kbgn,Kend
+            do J=Jbgn,Jend
+            do I=Ibgn,Iend
+                CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,&
+                &   J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0, I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,   &
+                &   I,J,K,  IJK,MinorMax)
+
+                CALL VBC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R, Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, &
+                &   Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r,IF_lcross,IF_adv_1,IF_adv_2,I_R0_r, J_R0_r, K_R0_r,I_R1_r,&
+                &   J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r,I_VL0_r, J_VL0_r, K_VL0_r,  I_VR0_r, J_VR0_r,&
+                &   K_VR0_r, I_VR1_r, J_VR1_r, K_VR1_r)
+
+                ugx=dQdxyz(1,I_R0_r,  J_R0_r,  K_R0_r)
+                ugy=dQdxyz(2,I_R0_r,  J_R0_r,  K_R0_r)
+                ugz=dQdxyz(3,I_R0_r,  J_R0_r,  K_R0_r)
+                vgx=dQdxyz(4,I_R0_r,  J_R0_r,  K_R0_r)
+                vgy=dQdxyz(4,I_R0_r,  J_R0_r,  K_R0_r)
+                vgz=dQdxyz(6,I_R0_r,  J_R0_r,  K_R0_r)
+                wgx=dQdxyz(7,I_R0_r,  J_R0_r,  K_R0_r)
+                wgy=dQdxyz(8,I_R0_r,  J_R0_r,  K_R0_r)
+                wgz=dQdxyz(9,I_R0_r,  J_R0_r,  K_R0_r)
+            
+                dQdxyz(1,I_l0, J_l0,  K_l0)=ugx
+                dQdxyz(2,I_l0, J_l0,  K_l0)=cost*ugy+sint*ugz
+                dQdxyz(3,I_l0, J_l0,  K_l0)=-sint*ugy+cost*ugz
+                dQdxyz(4,I_l0, J_l0,  K_l0)=cost*vgx+sint*wgx
+                dQdxyz(5,I_l0, J_l0,  K_l0)=cos2t*vgy+sct*(vgz+wgy)+sin2t*wgz
+                dQdxyz(6,I_l0, J_l0,  K_l0)=cos2t*vgz+sct*(-vgy+wgz)-sin2t*wgy
+                dQdxyz(7,I_l0, J_l0,  K_l0)=-sint*vgx+cost*wgx
+                dQdxyz(8,I_l0, J_l0,  K_l0)=-sin2t*vgz+sct*(-vgy+wgz)+cos2t*wgy
+                dQdxyz(9,I_l0, J_l0,  K_l0)=sin2t*vgy+sct*(vgz+wgy)+cos2t*wgz
+                
+                do LL=4,6
+                    L=(LL-1)*3+1
+                    dQdxyz(L,I_l0, J_l0,  K_l0) =dQdxyz_r(L,I_R0_r,  J_R0_r,  K_R0_r)
+                    ugy=dQdxyz_r(L+1,I_R0_r,J_R0_r,K_R0_r)
+                    ugz=dQdxyz_r(L+2,I_R0_r,J_R0_r,K_R0_r)
+                    dQdxyz(L+1,I_l0,J_l0,K_l0)=cost*ugy+sint*ugz
+                    dQdxyz(L+2,I_l0,J_l0,K_l0)=-sint*ugy+cost*ugz
+                enddo
+!                do L=1,18
+!                    DqDxyz(L,I_l0,J_l0,K_l0)=DqDxyz(L,I_r0_r,J_r0_r,K_r0_r)
+!                enddo
+            enddo
+            enddo
+            enddo
+        endif
+    
+    elseif(IF_period.ne.0)then
+        if(sweep==-2)then
+                do k=kbgn,kend
+                do j=jbgn,jend
+                do i=ibgn,iend
+                
+                    call BC_SETP2Prnum(I,J,K,IJK_L,IJK_R,MinorMax_R,Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,Ib_r,Ie_r,Jb_r,&
+                    &   Je_r,Kb_r,Ke_r,IF_lcross,IF_adv_1,IF_adv_2,I_R0_r, J_R0_r, K_R0_r,I_R1_r, J_R1_r, &
+                    &   K_R1_r,I_R2_r, J_R2_r, K_R2_r)
+                    CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                    &   I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0,I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+                    
+                    Vol(I_l0,J_l0,K_l0)=Vol(I_r0,J_r0,K_r0) 
+                    Vol(I_l1,J_l1,K_l1)=Vol(I_r0,J_r0,K_r0) 
+                    Dst(I_l0,J_l0,K_l0)=Dst(I_r0,J_r0,K_r0) 
+                    Dst(I_l1,J_l1,K_l1)=Dst(I_r0,J_r0,K_r0) 
+                    Alagm(IJK,I_l0,J_l0,K_l0)=Alagm(IJK,I_r0,J_r0,K_r0) 
+                    Alagm(IJK,I_l1,J_l1,K_l1)=Alagm(IJK,I_r0,J_r0,K_r0) 
+                
+               !     rad(I_l0,J_l0,K_l0)=2.0*rad(I_r0,J_r0,K_r0)-rad(I_r1,J_r1,K_r1)
+                rad(I_l0,J_l0,K_l0)=2.0*rad(I_r0,J_r0,K_r0)-rad(I_r1,J_r1,K_r1)
+                rad(I_l1,J_l1,K_l1)=2.0*rad(I_l0,J_l0,K_l0)-rad(I_r0,J_r0,K_r0)
+                rad(I_l2,J_l2,K_l2)=2.0*rad(I_l1,J_l1,K_l1)-rad(I_l0,J_l0,K_l0)
+                thtc(I_l0,J_l0,K_l0)=2.0*thtc(I_r0,J_r0,K_r0)-thtc(I_r1,J_r1,K_r1)
+                thtc(I_l1,J_l1,K_l1)=2.0*thtc(I_l0,J_l0,K_l0)-thtc(I_r0,J_r0,K_r0)
+                thtc(I_l2,J_l2,K_l2)=2.0*thtc(I_l1,J_l1,K_l1)-thtc(I_l0,J_l0,K_l0)
+                !    rad(I_l0,J_l0,K_l0)=rad_r(I_r0_r,J_r0_r,K_r0_r)
+                !    rad(I_l1,J_l1,K_l1)=rad_r(I_r1_r,J_r1_r,K_r1_r)
+                !    rad(I_l2,J_l2,K_l2)=rad_r(I_r2_r,J_r2_r,K_r2_r)
+
+                !    thtc(I_l0,J_l0,K_l0)=2.0*thtc(I_r0,J_r0,K_r0)-thtc(I_r1,J_r1,K_r1)
+                !    thtc(I_l1,J_l1,K_l1)=2.0*thtc(I_l0,J_l0,K_l0)-thtc(I_r0,J_r0,K_r0)
+                !    thtc(I_l2,J_l2,K_l2)=2.0*thtc(I_l1,J_l1,K_l1)-thtc(I_l0,J_l0,K_l0)
+                    do L=1,3        
+                        SD(IJK,L,I_VL0,J_VL0,K_VL0)=2.0*SD(IJK,L,I_VR0,J_VR0,K_VR0)-SD(IJK,L,I_VR1,J_VR1,K_VR1)
+                    enddo
+                enddo
+                enddo
+                enddo
+        elseif(sweep == -1) then
+            DO K=Kbgn,Kend
+            DO J=Jbgn,Jend
+            DO I=Ibgn,Iend
+!		 right side								!
+                CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,&
+                &   J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0, I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,   &
+                &   I,J,K,  IJK,MinorMax)
+
+                CALL VBC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R, Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, &
+                &   Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r,IF_lcross,IF_adv_1,IF_adv_2,I_R0_r, J_R0_r, K_R0_r,I_R1_r,&
+                &   J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r,I_VL0_r, J_VL0_r, K_VL0_r,  I_VR0_r, J_VR0_r,&
+                &   K_VR0_r, I_VR1_r, J_VR1_r, K_VR1_r)
+                
+                V(1,I_l0,  J_l0,  K_l0) = V_r(1,I_R0_r,  J_R0_r,  K_R0_r)
+                V(2,I_l0,  J_l0,  K_l0) = V_r(2,I_R0_r,  J_R0_r,  K_R0_r)
+                V(3,I_l0,J_l0,K_l0)=V_r(3,I_r0_r,J_r0_r,K_r0_r)*cost+V_r(4,I_r0_r,J_r0_r,K_r0_r)*sint
+                V(4,I_l0,J_l0,K_l0)=-V_r(3,I_r0_r,J_r0_r,K_r0_r)*sint+V_r(4,I_r0_r,J_r0_r,K_r0_r)*cost
+                V(5,I_l0,  J_l0,  K_l0) = V_r(5,I_R0_r,  J_R0_r,  K_R0_r)
+                PP(I_l0,  J_l0,  K_l0) = PP_r(I_R0_r,  J_R0_r,  K_R0_r)
+                T(I_l0,  J_l0,  K_l0) = T_r(I_R0_r,  J_R0_r,  K_R0_r)
+
+                V(1,I_L1,  J_L1,  K_L1) = V_r(1,I_R1_r,  J_R1_r,  K_R1_r)   !dzw05,20121113
+                V(2,I_L1,  J_L1,  K_L1) = V_r(2,I_R1_r,  J_R1_r,  K_R1_r)
+                V(3,I_l1,J_l1,K_l1)=V_r(3,I_r1_r,J_r1_r,K_r1_r)*cost+V_r(4,I_r1_r,J_r1_r,K_r1_r)*sint
+                V(4,I_l1,J_l1,K_l1)=-V_r(3,I_r1_r,J_r1_r,K_r1_r)*sint+V_r(4,I_r1_r,J_r1_r,K_r1_r)*cost
+                V(5,I_L1,  J_L1,  K_L1) = V_r(5,I_R1_r,  J_R1_r,  K_R1_r)
+                PP(I_L1,  J_L1,  K_L1) =PP_r(I_R1_r,  J_R1_r,  K_R1_r)
+                T(I_L1,  J_L1,  K_L1) = T_r(I_R1_r,  J_R1_r,  K_R1_r)
+
+                V(1,I_L2,  J_L2,  K_L2) = V_r(1,I_R2_r,  J_R2_r,  K_R2_r)
+                V(2,I_L2,  J_L2,  K_L2) = V_r(2,I_R2_r,  J_R2_r,  K_R2_r)
+                V(3,I_l2,J_l2,K_l2)=V_r(3,I_r2_r,J_r2_r,K_r2_r)*cost+V_r(4,I_r2_r,J_r2_r,K_r2_r)*sint
+                V(4,I_l2,J_l2,K_l2)=-V_r(3,I_r2_r,J_r2_r,K_r2_r)*sint+V_r(4,I_r2_r,J_r2_r,K_r2_r)*cost
+                V(5,I_L2,  J_L2,  K_L2) = V_r(5,I_R2_r,  J_R2_r,  K_R2_r)
+                PP(I_L2,  J_L2,  K_L2) =PP_r(I_R2_r,  J_R2_r,  K_R2_r)
+                T(I_L2,  J_L2,  K_L2) = T_r(I_R2_r,  J_R2_r,  K_R2_r)
+    !p2p direction match
+                DIR_l = IJK_l
+                DIR_r = IJK_r
+                DO L=1,3
+                    DIR_l = 1+MOD(DIR_l + 2**(IJK_l-1) -1,3)
+                    DIR_rstep = MOD(2**(IJK_r-1) -1, 3) !0 or 1
+                    DIR_rstep = IF_lcross + (-IF_lcross)*DIR_rstep !0,1 exchange
+                    DIR_r = 1+MOD(DIR_r + DIR_rstep,3)
+                    !DIR_r = 1+MOD(DIR_l + IF_lcross*2**(IJK_r-1) -1+9,3)
+                    Rds(DIR_l,I_l0,  J_l0,  K_l0)= Rds_r(DIR_r,I_R0_r,  J_R0_r,  K_R0_r) !right?
+                    !Rds(1,I_l0,  J_l0,  K_l0)= Rds_r(1,I_R0_r,  J_R0_r,  K_R0_r) !right?
+                    !Rds(2,I_l0,  J_l0,  K_l0)= Rds_r(2,I_R0_r,  J_R0_r,  K_R0_r) 
+                    !Rds(3,I_l0,  J_l0,  K_l0)= Rds_r(3,I_R0_r,  J_R0_r,  K_R0_r)
+                ENDDO
+      !turb
+                V(6,I_l0,  J_l0,  K_l0) = V_r(6,I_R0_r,  J_R0_r,  K_R0_r)
+                V(7,I_l0,  J_l0,  K_l0) = V_r(7,I_R0_r,  J_R0_r,  K_R0_r)
+                Rmiu(I_l0,  J_l0,  K_l0) = Rmiu_r(I_R0_r,  J_R0_r,  K_R0_r)
+                V(6,I_l1,  J_l1,  K_l1) = V_r(6,I_R1_r,  J_R1_r,  K_R1_r)
+                V(7,I_l1,  J_l1,  K_l1) = V_r(7,I_R1_r,  J_R1_r,  K_R1_r)
+                Rmiu(I_l1,  J_l1,  K_l1) = Rmiu_r(I_R1_r,  J_R1_r,  K_R1_r)
+                V(6,I_l2,  J_l2,  K_l2) = V_r(6,I_R2_r,  J_R2_r,  K_R2_r)
+                V(7,I_l2,  J_l2,  K_l2) = V_r(7,I_R2_r,  J_R2_r,  K_R2_r)
+                Rmiu(I_l2,  J_l2,  K_l2) = Rmiu_r(I_R2_r,  J_R2_r,  K_R2_r)
+
+                Shock(I_l0,J_l0,K_l0)=Shock_r(I_R0_r,  J_R0_r,  K_R0_r)
+                Shock(I_l1,J_l1,K_l1)=Shock_r(I_R1_r,  J_R1_r,  K_R1_r)
+                Shock(I_l2,J_l2,K_l2)=Shock_r(I_R2_r,  J_R2_r,  K_R2_r)
+            enddo
+            enddo
+            enddo
+        elseif(sweep==0)then
+            do K=Kbgn,Kend  
+            do J=Jbgn,Jend
+            do I=Ibgn,Iend
+                CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,&
+                &   J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0, I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,   &
+                &   I,J,K,  IJK,MinorMax)
+
+                CALL VBC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R, Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, &
+                &   Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r,IF_lcross,IF_adv_1,IF_adv_2,I_R0_r, J_R0_r, K_R0_r,I_R1_r,&
+                &   J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r,I_VL0_r, J_VL0_r, K_VL0_r,  I_VR0_r, J_VR0_r,&
+                &   K_VR0_r, I_VR1_r, J_VR1_r, K_VR1_r)
+                
+                ugx=dQdxyz(1,I_R0_r,  J_R0_r,  K_R0_r)
+                ugy=dQdxyz(2,I_R0_r,  J_R0_r,  K_R0_r)
+                ugz=dQdxyz(3,I_R0_r,  J_R0_r,  K_R0_r)
+                vgx=dQdxyz(4,I_R0_r,  J_R0_r,  K_R0_r)
+                vgy=dQdxyz(4,I_R0_r,  J_R0_r,  K_R0_r)
+                vgz=dQdxyz(6,I_R0_r,  J_R0_r,  K_R0_r)
+                wgx=dQdxyz(7,I_R0_r,  J_R0_r,  K_R0_r)
+                wgy=dQdxyz(8,I_R0_r,  J_R0_r,  K_R0_r)
+                wgz=dQdxyz(9,I_R0_r,  J_R0_r,  K_R0_r)
+            
+                dQdxyz(1,I_l0, J_l0,  K_l0)=ugx
+                dQdxyz(2,I_l0, J_l0,  K_l0)=cost*ugy+sint*ugz
+                dQdxyz(3,I_l0, J_l0,  K_l0)=-sint*ugy+cost*ugz
+                dQdxyz(4,I_l0, J_l0,  K_l0)=cost*vgx+sint*wgx
+                dQdxyz(5,I_l0, J_l0,  K_l0)=cos2t*vgy+sct*(vgz+wgy)+sin2t*wgz
+                dQdxyz(6,I_l0, J_l0,  K_l0)=cos2t*vgz+sct*(-vgy+wgz)-sin2t*wgy
+                dQdxyz(7,I_l0, J_l0,  K_l0)=-sint*vgx+cost*wgx
+                dQdxyz(8,I_l0, J_l0,  K_l0)=-sin2t*vgz+sct*(-vgy+wgz)+cos2t*wgy
+                dQdxyz(9,I_l0, J_l0,  K_l0)=sin2t*vgy+sct*(vgz+wgy)+cos2t*wgz
+                
+                do LL=4,6
+                    L=(LL-1)*3+1
+                    dQdxyz(L,I_l0, J_l0,  K_l0) =dQdxyz_r(L,I_R0_r,  J_R0_r,  K_R0_r)
+                    ugy=dQdxyz_r(L+1,I_R0_r,J_R0_r,K_R0_r)
+                    ugz=dQdxyz_r(L+2,I_R0_r,J_R0_r,K_R0_r)
+                    dQdxyz(L+1,I_l0,J_l0,K_l0)=cost*ugy+sint*ugz
+                    dQdxyz(L+2,I_l0,J_l0,K_l0)=-sint*ugy+cost*ugz
+                enddo
+            enddo
+            enddo
+            enddo
+        endif
+    endif
+
+        
+END SUBROUTINE BC_P2P
+
+

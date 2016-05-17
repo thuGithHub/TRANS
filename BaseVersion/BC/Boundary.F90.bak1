@@ -1,0 +1,113 @@
+SUBROUTINE BC_Boundarys(sweep)
+    USE Global
+    IMPLICIT NONE
+    
+    INTEGER:: sweep
+    INTEGER:: IJK, minormax
+    REAL:: out_n
+
+	  !0: VL in side surf (as BC)
+	  !1: VL(Dq is in center, do in Boundary_blk001) in ghost cell(VL outside surf) and connect
+	  !2: VL,VR in side(use external to replace internal, external is original VL on surface) 
+	  !   and  Connect in Vexternal?
+
+	  ! need to know in which dir: I,J,K, only one side neded
+	  ! all VL, VR:  I dir, Jend&Kend+1 but what about cut?
+
+    
+    INTEGER:: Nblkbc
+    INTEGER, POINTER:: IJKBC(:,:), IJKBC_r(:,:)
+    INTEGER:: iBlock
+    INTEGER:: Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+    INTEGER:: Kind_BC, Kindsub_BC,IF_Period
+
+    INTEGER:: iblk_ex, iblkbd_ex
+    INTEGER:: iblknum_ex !actual block num (num->id)
+
+    INTEGER:: IF_lcross, IF_adv_1, IF_adv_2
+    INTEGER:: Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r
+
+    DO iBlock = 1, Max_Block
+      CALL GLOBAL_SetPointers(iBlock)
+      IJKBC => ThisBlock%IJKBC
+
+	  DO Nblkbc = 1,ThisBlock%Num_block_BC
+	             Ibgn = ijkBC(Nblkbc, i_Ibgn   )
+	             Iend = ijkBC(Nblkbc, i_Iend   )
+	             Jbgn = ijkBC(Nblkbc, i_Jbgn   )
+	             Jend = ijkBC(Nblkbc, i_Jend   )
+	             Kbgn = ijkBC(Nblkbc, i_Kbgn   )
+	             Kend = ijkBC(Nblkbc, i_Kend   )
+        
+	          Kind_BC = ijkBC(Nblkbc, i_kind   )
+	        Kindsub_BC= ijkBC(Nblkbc, i_kindsub)
+	        
+	        !Set BC IJKs
+	        CALL BC_SETIJK(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,  Nblkbc,  IJK,MinorMax,Out_n)
+            !Set ghost cells
+!		    CALL BC_ghostcelltransfer(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend ,sweep,IJK,MinorMax)
+
+!			inviscid
+!         if (Kind_BC == 1 .and.  Kindsub_BC == 0 ) call BC_inviscidwall(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend  ,sweep,IJK,minormax)
+
+!			viscous
+!         if (Kind_BC == 1 ) call BC_wall(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,Kindsub_BC,sweep,IJK,minormax)
+            if(Kind_BC==1) call BC_Wall(NBlkbc,sweep)       
+
+!		Non-reflection Far
+         if (Kind_BC == 2                        ) call BC_far(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend   ,sweep,IJK,minormax, Out_n)
+!        if(kind_BC==2)  call BC_far(Nblkbc,sweep)
+
+!		Symmetry (Kindsub_BC=1,2,3: sym through XY, XZ, YZ plane
+         if (Kind_BC == 3) call BC_symm(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend, Kindsub_BC  ,sweep,IJK,minormax)
+!        if(kind_BC==3)  call BC_Symm(Nblkbc,sweep)
+
+!		Inlet
+!     if (Kind_BC == 5) call BC_inlet( Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,Kindsub_BC   ,sweep,IJK,minormax)
+        if(Kind_BC==5) call BC_Inlet(NBlkbc,sweep)
+
+!		Outlet:     Kindsub_BC=:  0:outlet with PPF  1:extrapolation
+!     if (Kind_BC == 7                        ) call BC_outlet(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend ,Kindsub_BC  ,sweep,IJK,minormax)
+        if(Kind_BC==7) call BC_Outlet(Nblkbc,sweep)
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !		 p-to-p BC						      !!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	     IF (Kind_BC == 9 .and.  Kindsub_BC == 1  ) then
+	     IF (Kind_BC == 9) then
+
+			  iblk_ex = ijkBC(Nblkbc,     i_blk_ex  )				!!对方块号
+			iblkbd_ex = ijkBC(Nblkbc,     i_blkbd_ex)				!!对方块之边界号
+
+	         IF_lcross = ijkBC(Nblkbc, i_lcross)
+			 IF_adv_1  = ijkBC(Nblkbc, i_lrev_a)
+			 IF_adv_2  = ijkBC(Nblkbc, i_lrev_b)
+             IF_period=ijkBC(Nblkbc,I_period)
+			 
+             DO iblknum_ex = 1, Max_Block
+                 IF (AllBlocks(iblknum_ex)%ID_Present_Blk == iblk_ex) THEN
+			         IJKBC_r => AllBlocks(iblknum_ex)%IJKBC
+
+	                 !if (iblk_ex == id_present_blk ) then					!!自己与自己搭接，一般只有割缝BC
+				         Ib_r = ijkBC_r(iblkbd_ex, i_Ibgn    )
+				         Ie_r = ijkBC_r(iblkbd_ex, i_Iend    )
+				         Jb_r = ijkBC_r(iblkbd_ex, i_Jbgn    )
+				         Je_r = ijkBC_r(iblkbd_ex, i_Jend    )
+				         Kb_r = ijkBC_r(iblkbd_ex, i_Kbgn    )
+				         Ke_r = ijkBC_r(iblkbd_ex, i_Kend    )
+!                 call BC_P2P( Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, iblknum_ex, Ib_r, Ie_r, Jb_r, Je_r,&
+!              &    Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2 ,sweep,IJK,minormax,IF_Period)
+                  call BC_P2P(Nblkbc,iblknum_ex,sweep)
+	                 !endif
+
+	                 !if (iblk_ex /= id_present_blk ) then					!!自己与别人搭接
+
+	                 !endif
+                     EXIT !only once is enough
+                ENDIF
+            ENDDO
+	     ENDIF
+	  ENDDO
+    ENDDO
+
+END SUBROUTINE BC_Boundarys

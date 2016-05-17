@@ -1,0 +1,602 @@
+SUBROUTINE PARALLEL_BC_sendrecv_blk(iBlock, Nblkbc, ImpiTAG, Nmpiproc,    sweep )
+use Global
+IMPLICIT NONE
+      
+        INTEGER iBlock, Nblkbc, ImpiTAG, Nmpiproc
+        INTEGER:: sweep
+
+        INTEGER isuf, Ibgn, Iend, Jbgn,Jend, Kbgn, Kend
+        INTEGER If_lcross, IF_adv_1, IF_adv_2,IF_Period
+
+      INTEGER:: IJK,MinorMax
+      REAL:: Out_n
+
+      INTEGER:: DIR,DIRstep !send/recv rds ijk
+      
+      INTEGER:: NSizeI, NSizeJ, NSizeK, NSizeIJK, NIJKmax
+      INTEGER:: NVnum
+      
+      INTEGER:: n_r
+!!!!!!
+      INTEGER,POINTER:: IJKBC(:,:)
+
+      INTEGER:: II     !,idxI,idxJ,idxK
+      INTEGER:: I,J,K,L,LL
+
+        INTEGER:: I_L0,I_L1,I_L2
+        INTEGER:: J_L0,J_L1,J_L2
+        INTEGER:: K_L0,K_L1,K_L2
+        INTEGER:: I_R0,I_R1,I_R2
+        INTEGER:: J_R0,J_R1,J_R2
+        INTEGER:: K_R0,K_R1,K_R2
+        
+        INTEGER:: I_R0_r, J_R0_r, K_R0_r
+
+    INTEGER:: I_VL0,J_VL0,K_VL0
+    INTEGER:: I_VR0,I_VR1
+    INTEGER:: J_VR0,J_VR1
+    INTEGER:: K_VR0,K_VR1
+
+    INTEGER:: I_VL0_r,J_VL0_r,K_VL0_r
+    INTEGER:: I_VR0_r,I_VR1_r
+    INTEGER:: J_VR0_r,J_VR1_r
+    INTEGER:: K_VR0_r,K_VR1_r      
+    real::rrad,lrad,thta_l,thta_r,Vr_r,Vth_r,dQdr,dQdth,sinr,cosr,sinl,cosl
+    real::dstage,sint,cost,sin2t,cos2t,sct,ugx,ugy,ugz,vgx,vgy,vgz,wgx,wgy,wgz
+
+      CALL GLOBAL_SetPointers(iBlock)
+      IJKBC=>ThisBlock%IJKBC
+
+        isuf = ijkBC(Nblkbc, i_suf)
+        Ibgn = ijkBC(Nblkbc, i_Ibgn)
+        Iend = ijkBC(Nblkbc, i_Iend)
+        Jbgn = ijkBC(Nblkbc, i_Jbgn)
+        Jend = ijkBC(Nblkbc, i_Jend)
+        Kbgn = ijkBC(Nblkbc, i_Kbgn)
+        Kend = ijkBC(Nblkbc, i_Kend)
+        IF_lcross = ijkBC(Nblkbc, i_lcross)
+        IF_adv_1 = ijkBC(Nblkbc, i_lrev_a)
+        IF_adv_2 = ijkBC(Nblkbc, i_lrev_b)
+        IF_Period=ijkBC(Nblkbc,I_Period)
+    
+            CALL BC_SETIJK(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,  Nblkbc,  IJK,MinorMax,Out_n)
+
+                if (sweep == -2) then
+                    NVnum=15
+                elseif (sweep == -1) then
+                        NVnum = 36
+                elseif(sweep==0)then    !for gradient
+                        NVnum=18        !u,v,w,T,k,Omega
+                endif
+
+                NSizeI = Iend-Ibgn+1
+                NSizeJ = Jend-Jbgn+1
+                NSizeK = Kend-Kbgn+1
+
+                NSizeIJK   = NSizeI * NSizeJ * NSizeK
+                NIJKmax=NVnum*NSizeIJK
+                II = 0
+        dstage=real(IF_Period)*2*Pi/real(nblade)
+        sint=sin(dstage)
+        cost=cos(dstage)        
+        cos2t=cost*cost
+        sin2t=sint*sint
+        sct=sint*cost
+
+        if(IF_Period==0)then  !non-periodic p-2-p 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                IF (sweep == -1) THEN
+                    DO K=Kbgn,Kend
+                    DO J=Jbgn,Jend
+                    DO I=Ibgn,Iend
+
+                        call BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                        &       I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+
+                        do L=1,7!15
+                          A(II+L)=   V(L,I_r0,J_r0,K_r0)
+                        enddo
+                        A(II+8)=     PP(I_r0,J_r0,K_r0)
+                        A(II+9)=    T(I_r0,J_r0,K_r0)
+                        DIR = IJK
+                        do L=1,3
+                          DIR = 1+MOD(DIR + 2**(IJK-1) -1,3)
+                          A(II+9+L)=Rds(DIR,I_r0,J_r0,K_r0)
+                        enddo
+                        A(II+13)=    Rmiu(I_r0,J_r0,K_r0)
+                        do L=1,7            !dzw05,20121113
+                          A(II+13+L)=   V(L,I_r1,J_r1,K_r1)
+                        enddo    
+                        A(II+21)=     PP(I_r1,J_r1,K_r1)
+                        A(II+22)=     T(I_r1,J_r1,K_r1)
+                        A(II+23)=Rmiu(I_r1,J_r1,K_r1)
+                        do L=1,7
+                          A(II+23+L)=   V(L,I_r2,J_r2,K_r2)
+                        enddo
+                        A(II+31)=     PP(I_r2,J_r2,K_r2)
+                        A(II+32)=     T(I_r2,J_r2,K_r2)
+                        A(II+33)=Rmiu(I_r2,J_r2,K_r2)
+                        A(II+34)=shock(I_r0,J_r0,K_r0)
+                        A(II+35)=shock(I_r1,J_r1,K_r1)
+                        A(II+36)=shock(I_r2,J_r2,K_r2)
+                
+                        II = II + NVnum
+                    enddo
+                    enddo
+                    enddo
+                else if(sweep==-2)then
+                    
+                    do k=kbgn,kend
+                    do J=jbgn,jend
+                    do I=ibgn,iend
+
+                        CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,&
+                        &       I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0,I_VR0,J_VR0,K_VR0,&
+                        &       I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+
+                        A(II+1)=Vol(I_r0,J_r0,K_r0)     !I_r0,J_r0,K_r0 may be larger than NI,NJ,NK but it doesn't matter
+                        A(II+2)=Dst(I_r0,J_r0,K_r0)
+                        A(II+3)=Alagm(IJK,I_r0,J_r0,K_r0)
+                        A(II+4)=Vol(I_r1,J_r1,K_r1)
+                        A(II+5)=Dst(I_r1,J_r1,K_r1)
+                        A(II+6)=Alagm(IJK,I_r1,J_r1,K_r1)
+                    !    A(II+7)=XX(I_VR1,J_VR1,K_VR1)
+                    !    A(II+8)=YY(I_VR1,J_VR1,K_VR1)
+                    !    A(II+9)=ZZ(I_VR1,J_VR1,K_VR1)
+!if(thisBlock%ID_Present_blk==5.and.Nblkbc==4)then
+!    write(*,*)"blk5 send ",I_r0,J_r0,K_r0,I_r1,J_r1,K_r1,A(II+3),A(II+6)
+!endif
+                        do L=1,3
+                          A(II+6+L)=Out_n* SD(IJK,L,I_VR1,J_VR1,K_VR1)        !modified by ydd
+                        enddo
+                        A(II+10)=rad(I_r0,J_R0,K_r0)
+                        A(II+11)=thtc(I_r0,J_r0,K_r0)
+                        A(II+12)=thtc(I_r1,J_r1,K_r1)
+                        A(II+13)=thtc(I_r2,J_r2,K_r2)
+                        A(II+14)=rad(I_r1,J_r1,K_r1)
+                        A(II+15)=rad(I_r2,J_r2,K_r2)
+                        II = II + NVnum
+                    enddo
+                    enddo
+                    enddo
+                elseif(sweep==0)then
+                    do k=Kbgn,Kend
+                    do j=Jbgn,Jend
+                    do i=Ibgn,Iend
+                        call BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                        &       I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+                        
+                        do L=1,18
+                            A(II+L)=DqDxyz(L,I_R0,J_R0,K_R0)
+                        enddo
+
+                        II=II+NVnum
+                    enddo
+                    enddo
+                    enddo
+                endif
+!	        send & recv
+                CALL MPI_SENDRECV(A,NIJKmax,MPI_REAL, Nmpiproc,ImpiTAG,B,NIJKmax,MPI_REAL,&
+                &   Nmpiproc,ImpiTAG,MPI_COMM_WORLD,status,ierr)
+!
+                if(sweep==-1)then
+                    DO K=Kbgn,Kend
+                    DO J=Jbgn,Jend
+                    DO I=Ibgn,Iend
+!			recv buffer
+                        CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1, &
+                        &       I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,&
+                        &       K_VL0,I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+                        CALL BC_SETMPIrnum(nSizeI,nSizeJ,nSizeK, Ibgn,Jbgn,Kbgn,  I,J,K,  IJK, IF_lcross, IF_adv_1, IF_adv_2, n_r)  
+
+                        II = (n_r - 1) * NVnum
+                        
+                        do L=1,7
+                                V(L,I_l0,J_l0,K_l0) = B(II+L)
+                        enddo
+                        PP(I_l0,J_l0,K_l0) = B(II+8)
+                        T (I_l0,J_l0,K_l0) = B(II+9)
+
+                        DIR = IJK
+                        do L=1,3
+                            DIRstep = MOD(2**(IJK-1) -1, 3) !0 or 1
+                            DIRstep = IF_lcross + (-IF_lcross)*DIRstep !0,1 exchange
+                            DIR = 1+MOD(DIR + DIRstep,3)
+                            Rds(DIR,I_l0,J_l0,K_l0) = B(II+9+L)
+                        enddo
+                        Rmiu(I_l0,J_l0,K_l0) = B(II+13)
+
+                        do L=1,7
+                                V(L,I_l1,J_l1,K_l1) = B(II+13+L)
+                        enddo
+                        PP(I_l1,J_l1,K_l1) = B(II+21)
+                        T(I_l1,J_l1,K_l1) = B(II+22)
+                        Rmiu(I_l1,J_l1,K_l1)=B(II+23)
+
+                        do L=1,7
+                                V(L,I_l2,J_l2,K_l2) = B(II+23+L)
+                        enddo
+                        PP(I_l2,J_l2,K_l2) = B(II+31)
+                        T(I_l2,J_l2,K_l2) = B(II+32)
+                        Rmiu(I_l2,J_l2,K_l2) = B(II+33)
+                        shock(I_l0,J_l0,K_l0)=B(II+34)
+                        shock(I_l1,J_l1,K_l1)=B(II+35)
+                        shock(I_l2,J_l2,K_l2)=B(II+36)
+                    enddo
+                    enddo
+                    enddo
+
+                elseif(sweep == -2)then
+                    do k=kbgn,kend
+                    do j=jbgn,jend
+                    do i=ibgn,iend
+
+                        CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1, &
+                        &       I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,&
+                        &       K_VL0,I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+                        
+                        CALL BC_SETMPIrnum(nSizeI,nSizeJ,nSizeK,Ibgn,Jbgn,Kbgn,I,J,K,IJK,IF_lcross,IF_adv_1,IF_adv_2,n_r)  
+
+                        II =(n_r-1)*NVnum
+
+                        Vol(I_l0,J_l0,K_l0) = B(II+1)
+                        Dst(I_l0,J_l0,K_l0) = B(II+2)
+                        Alagm(IJK,I_l0,J_l0,K_l0) =B(II+3)
+                        Vol(I_l1,J_l1,K_l1) = B(II+4)
+                        Dst(I_l1,J_l1,K_l1) = B(II+5)
+                        Alagm(IJK,I_l1,J_l1,K_l1) =B(II+6)
+                        !XX(I_VL0,J_VL0,K_VL0)=B(II+7)
+                        !YY(I_VL0,J_VL0,K_VL0)=B(II+8)
+                        !ZZ(I_VL0,J_VL0,K_VL0)=B(II+9)
+!if(thisBlock%ID_Present_blk==4)then
+!    write(*,*)"blk4 recv",I_l0,J_l0,K_l0,I_l1,J_l1,K_l1,IJK,Alagm(IJK,I_l0,J_l0,K_l0),Alagm(IJK,I_l1,J_l1,K_l1),"p2p",Nblkbc,Alagm(1,0,1,1),Alagm(1,-1,1,1)
+!endif
+
+                        do L=1,3
+                                SD(IJK,L,I_VL0,J_VL0,K_VL0) =-1.0*Out_n* B(II+6+L)
+                        enddo
+                        rad(I_l0,J_l0,K_l0)=B(II+10)
+                        thtc(I_l0,J_l0,K_l0)=B(II+11)
+                        thtc(I_l1,J_l1,K_l1)=B(II+12)
+                        thtc(I_l2,J_l2,K_l2)=B(II+13)
+                        rad(I_l1,J_l1,K_l1)=B(II+14)
+                        rad(I_l2,J_l2,K_l2)=B(II+15)
+           !             thtf(IJK,I_VL0,J_VL0,K_VL0)=B(II+14)
+                    enddo
+                    enddo
+                    enddo
+                elseif(sweep==0)then
+                        do K=kbgn,Kend
+                        do J=Jbgn,Jend
+                        do I=Ibgn,Iend
+                        call BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                        &       I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+                        CALL BC_SETMPIrnum(nSizeI,nSizeJ,nSizeK, Ibgn,Jbgn,Kbgn,I,J,K,IJK,IF_lcross,IF_adv_1,IF_adv_2,n_r)  
+                        
+                            II =(n_r-1)*NVnum
+                            do L=1,18
+                                DqDxyz(L,I_L0,J_L0,K_L0)=B(II+L)
+                            enddo
+                        enddo
+                        enddo
+                        enddo
+                endif
+
+        else if(IF_Period.ne.0)then
+           if(sweep==-1)then
+                DO K=Kbgn,Kend
+                DO J=Jbgn,Jend
+                DO I=Ibgn,Iend
+
+                    call BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                    &       I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+                        
+                        do L=1,7
+                          A(II+L)=   V(L,I_r0,J_r0,K_r0)
+                        enddo
+                        A(II+8)=     PP(I_r0,J_r0,K_r0)
+                        A(II+9)=     T(I_r0,J_r0,K_r0)
+                        
+                        DIR = IJK
+                        do L=1,3
+                          DIR = 1+MOD(DIR + 2**(IJK-1) -1,3)
+                           A(II+9+L)=Rds(DIR,I_r0,J_r0,K_r0)
+                        enddo
+                        A(II+13)=    Rmiu(I_r0,J_r0,K_r0)
+                        do L=14,20            !dzw05,20121113
+                          A(II+L)=   V(L-13,I_r1,J_r1,K_r1)
+                        enddo    
+                        A(II+21)=     PP(I_r1,J_r1,K_r1)
+                        A(II+22)=     T(I_r1,J_r1,K_r1)
+                        A(II+23)=     Rmiu(I_r1,J_r1,K_r1)
+                        do L=24,30
+                          A(II+L)=   V(L-23,I_r2,J_r2,K_r2)
+                        enddo
+                        A(II+31)=     PP(I_r2,J_r2,K_r2)
+                        A(II+32)=     T(I_r2,J_r2,K_r2)
+                        A(II+33)=     Rmiu(I_r2,J_r2,K_r2)
+
+                        A(II+34)=shock(I_r0,J_r0,K_r0)
+                        A(II+35)=shock(I_r1,J_r1,K_r1)
+                        A(II+36)=shock(I_r2,J_r2,K_r2)
+                    
+                        II = II + NVnum
+                    enddo
+                    enddo
+                    enddo
+                ELSEIF (sweep == -2) THEN
+                    do k=kbgn,kend
+                    do j=jbgn,jend
+                    do i=ibgn,iend
+                        CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,&
+                        &       I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0,I_VR0,J_VR0,K_VR0,&
+                        &       I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+        
+                        Vol(I_l0,J_l0,K_l0)=Vol(I_r0,J_r0,K_r0)
+                        Vol(I_l1,J_l1,K_l1)=Vol(I_r0,J_r0,K_r0)
+                        Dst(I_l0,J_l0,K_l0)=Dst(I_r0,J_r0,K_r0)
+                        Dst(I_l1,J_l1,K_l1)=Dst(I_r0,J_r0,K_r0)
+                        Alagm(IJK,I_l0,J_l0,K_l0)=Alagm(IJK,I_r0,J_r0,K_r0)
+                        Alagm(IJK,I_l1,J_l1,K_l0)=Alagm(IJK,I_r0,J_r0,K_r0)
+                rad(I_l0,J_l0,K_l0)=2.0*rad(I_r0,J_r0,K_r0)-rad(I_r1,J_r1,K_r1)
+                rad(I_l1,J_l1,K_l1)=2.0*rad(I_l0,J_l0,K_l0)-rad(I_r0,J_r0,K_r0)
+                rad(I_l2,J_l2,K_l2)=2.0*rad(I_l1,J_l1,K_l1)-rad(I_l0,J_l0,K_l0)
+                thtc(I_l0,J_l0,K_l0)=2.0*thtc(I_r0,J_r0,K_r0)-thtc(I_r1,J_r1,K_r1)
+                thtc(I_l1,J_l1,K_l1)=2.0*thtc(I_l0,J_l0,K_l0)-thtc(I_r0,J_r0,K_r0)
+                thtc(I_l2,J_l2,K_l2)=2.0*thtc(I_l1,J_l1,K_l1)-thtc(I_l0,J_l0,K_l0)
+                !        rad(I_l0,J_l0,K_l0)=rad(I_r0,J_r0,K_r0)
+                !        rad(I_l1,J_l1,K_l1)=rad(I_r0,J_r0,K_r0)
+                !        rad(I_l2,J_l2,K_l2)=rad(I_r0,J_r0,K_r0)
+
+                !        thtc(I_l0,J_l0,K_l0)=2.0*thtc(I_r0,J_r0,K_r0)-thtc(I_r1,J_r1,K_r1)
+                !        thtc(I_l1,J_l1,K_l1)=2.0*thtc(I_l0,J_l0,K_l0)-thtc(I_r0,J_r0,K_r0)
+                !        thtc(I_l2,J_l2,K_l2)=2.0*thtc(I_l1,J_l1,K_l1)-thtc(I_l0,J_l0,K_l0)
+                        
+                        do L=1,3
+                            SD(IJK,L,I_VL0,J_VL0,K_VL0)=2.0*SD(IJK,L,I_VR0,J_VR0,K_VR0)-SD(IJK,L,I_VR1,J_VR1,K_VR1)
+                        enddo
+                        !XX(I_VL0,J_VL0,K_VL0)=2.0*XX(I_VR0,J_VR0,K_VR0)-XX(I_VR1,J_VR1,K_VR1) 
+                        !YY(I_VL0,J_VL0,K_VL0)=2.0*YY(I_VR0,J_VR0,K_VR0)-YY(I_VR1,J_VR1,K_VR1) 
+                        !ZZ(I_VL0,J_VL0,K_VL0)=2.0*ZZ(I_VR0,J_VR0,K_VR0)-ZZ(I_VR1,J_VR1,K_VR1)
+                            
+                        II=II+NVnum
+                    enddo
+                    enddo
+                    enddo 
+                    return  
+                elseif(sweep==0)then
+                    do k=Kbgn,Kend
+                    do j=Jbgn,Jend
+                    do i=Ibgn,Iend
+                        call BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                        &       I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+
+                        do LL=1,18
+!                            L=(LL-1)*3+1
+!                            thta_r=thtc(I_R0,J_R0,K_R0)
+!                            sinr=sin(thta_r)
+!                            cosr=cos(thta_r)
+!                            rrad=rad(I_R0,J_R0,K_R0)
+!                            dQdr=sinr*dQdxyz(L+1,I_R0,J_R0,K_R0)+ &
+!                            &           cosr*dQdxyz(L+2,I_R0,J_R0,K_R0)
+!                            dQdth=rrad*cosr*dQdxyz(L+1,I_R0,J_R0,K_R0)- &
+!                            &           rrad*sinr*dQdxyz(L+2,I_R0,J_R0,K_R0)
+
+                            A(II+LL)=dQdxyz(LL,I_r0,J_r0,K_r0)
+!                            A(II+L+1)=dQdr
+!                            A(II+L+2)=dQdth
+                        enddo
+                        II=II+NVnum
+                    enddo        
+                    enddo        
+                    enddo        
+                endif
+
+!	        buffer init finish
+!	        send & recv
+                CALL MPI_SENDRECV(A,NIJKmax,MPI_REAL, Nmpiproc, ImpiTAG,B,NIJKmax,MPI_REAL,&
+                &           Nmpiproc,ImpiTAG,MPI_COMM_WORLD,status,ierr)
+
+                if(sweep==-1)then
+                    do K=Kbgn,Kend
+                    do J=Jbgn,Jend
+                    do I=Ibgn,Iend
+                    
+                        CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,&
+                        &       I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,I_VL0,J_VL0,K_VL0,I_VR0,J_VR0,K_VR0,&
+                        &       I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax) 
+                        CALL BC_SETMPIrnum(nSizeI,nSizeJ,nSizeK, Ibgn,Jbgn,Kbgn,  I,J,K,  IJK, IF_lcross, IF_adv_1, IF_adv_2, n_r)  
+
+                        II = (n_r - 1) * NVnum
+                        
+                        V(1,I_l0,J_l0,K_l0)=B(II+1)
+                        V(2,I_l0,J_l0,K_l0)=B(II+2)
+                        Vr_r=B(II+3)
+                        Vth_r=B(II+4)                        
+                        V(3,I_L0,  J_L0,  K_L0) =Vr_r*cost+Vth_r*sint
+                        V(4,I_L0,  J_L0,  K_L0) =-Vr_r*sint+Vth_r*cost    
+                        do L=5,7
+                            V(L,I_l0,J_l0,K_l0) = B(II+L)
+                        enddo
+                        PP(I_l0,J_l0,K_l0) = B(II+8)
+                        T (I_l0,J_l0,K_l0) = B(II+9)
+
+                        DIR = IJK
+                        do L=1,3
+                            DIRstep = MOD(2**(IJK-1) -1, 3) !0 or 1
+                            DIRstep = IF_lcross + (-IF_lcross)*DIRstep !0,1 exchange
+                            DIR = 1+MOD(DIR + DIRstep,3)
+                            Rds(DIR,I_l0,J_l0,K_l0) = B(II+9+L)
+                        enddo
+                        Rmiu(I_l0,J_l0,K_l0) = B(II+13)
+
+                        V(1,I_l1,J_l1,K_l1)=B(II+14)
+                        V(2,I_l1,J_l1,K_l1)=B(II+15)
+                        Vr_r=B(II+16)
+                        Vth_r=B(II+17)                        
+                        V(3,I_L1,  J_L1,  K_L1) =Vr_r*cost+Vth_r*sint
+                        V(4,I_L1,  J_L1,  K_L1) =-Vr_r*sint+Vth_r*cost    
+                        do L=18,20
+                                V(L-13,I_l1,J_l1,K_l1) = B(II+L)
+                        enddo
+                        PP(I_l1,J_l1,K_l1) = B(II+21)
+                        T(I_l1,J_l1,K_l1) = B(II+22)
+                        Rmiu(I_l1,J_l1,K_l1) = B(II+23)
+
+                        V(1,I_l2,J_l2,K_l2)=B(II+24)
+                        V(2,I_l2,J_l2,K_l2)=B(II+25)
+                        Vr_r=B(II+26)
+                        Vth_r=B(II+27)                        
+                        thta_l=thtc(I_l2,J_l2,K_l2)
+                        V(3,I_L2,  J_L2,  K_L2) =Vr_r*cost+Vth_r*sint
+                        V(4,I_L2,  J_L2,  K_L2) =-Vr_r*sint+Vth_r*cost
+                        do L=28,30
+                                V(L-23,I_l2,J_l2,K_l2) = B(II+L)
+                        enddo
+                        PP(I_l2,J_l2,K_l2) = B(II+31)
+                        T(I_l2,J_l2,K_l2) = B(II+32)
+                        Rmiu(I_l2,J_l2,K_l2) = B(II+33)
+
+                        shock(I_l0,J_l0,K_l0)=B(II+34)
+                        shock(I_l1,J_l1,K_l1)=B(II+35)
+                        shock(I_l2,J_l2,K_l2)=B(II+36)
+                    enddo
+                    enddo
+                    enddo
+                elseif(sweep==0)then
+                    do K=Kbgn,Kend
+                    do J=Jbgn,Jend
+                    do I=Ibgn,Iend
+                        call BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,&
+                        &       I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+                        CALL BC_SETMPIrnum(nSizeI,nSizeJ,nSizeK, Ibgn,Jbgn,Kbgn,I,J,K,IJK,IF_lcross,IF_adv_1,IF_adv_2,n_r)  
+                        
+                        II =(n_r-1)*NVnum
+                        
+!                        thta_l=thtc(I_l0,J_l0,K_l0)
+!                        sinl=sin(thta_l)
+!                        cosl=cos(thta_l)
+!                        lrad=rad(I_l0,J_l0,K_l0)
+!                        do LL=1,6
+!                                L=(LL-1)*3+1
+!                                dQdxyz(L,I_l0,J_l0,K_l0) = B(II+L)
+!                                dQdr=B(II+L+1)
+!                                dQdth=B(II+L+2)
+!                                dQdxyz(L+1,I_l0,J_l0,K_l0)=cosl*dQdr-sinl*dQdth/lrad
+!                                dQdxyz(L+2,I_l0,J_l0,K_l0)=sinl*dQdr+cosl*dQdth/lrad
+!                        enddo
+                        ugx=B(II+1)
+                        ugy=B(II+2)
+                        ugz=B(II+3)
+                        vgx=B(II+4)
+                        vgy=B(II+5)
+                        vgz=B(II+6)
+                        wgx=B(II+7)
+                        wgy=B(II+8)
+                        wgz=B(II+9)
+                
+                        dQdxyz(1,I_l0, J_l0,  K_l0)=ugx
+                        dQdxyz(2,I_l0, J_l0,  K_l0)=cost*ugy+sint*ugz
+                        dQdxyz(3,I_l0, J_l0,  K_l0)=-sint*ugy+cost*ugz
+                        dQdxyz(4,I_l0, J_l0,  K_l0)=cost*vgx+sint*wgx
+                        dQdxyz(5,I_l0, J_l0,  K_l0)=cos2t*vgy+sct*(vgz+wgy)+sin2t*wgz
+                        dQdxyz(6,I_l0, J_l0,  K_l0)=cos2t*vgz+sct*(-vgy+wgz)-sin2t*wgy
+                        dQdxyz(7,I_l0, J_l0,  K_l0)=-sint*vgx+cost*wgx
+                        dQdxyz(8,I_l0, J_l0,  K_l0)=-sin2t*vgz+sct*(-vgy+wgz)+cos2t*wgy
+                        dQdxyz(9,I_l0, J_l0,  K_l0)=sin2t*vgy+sct*(vgz+wgy)+cos2t*wgz
+                
+                        do LL=4,6
+                            L=(LL-1)*3+1
+                            dQdxyz(L,I_l0, J_l0,  K_l0) =B(II+L)
+                            ugy=B(II+L+1)
+                            ugz=B(II+L+2)
+                            dQdxyz(L+1,I_l0,J_l0,K_l0)=cost*ugy+sint*ugz
+                            dQdxyz(L+2,I_l0,J_l0,K_l0)=-sint*ugy+cost*ugz
+                        enddo
+                    enddo
+                    enddo
+                    enddo
+                endif
+        end if
+
+END SUBROUTINE PARALLEL_BC_sendrecv_blk
+
+
+SUBROUTINE BC_SETMPIrnum(nSizeI,nSizeJ,nSizeK, Ibgn,Jbgn,Kbgn,  I,J,K,  IJK, IF_lcross, IF_adv_1, IF_adv_2, n_r)
+    Use Global
+    IMPLICIT NONE
+
+    INTEGER:: I,J,K
+    INTEGER:: Ibgn,Jbgn,Kbgn
+    INTEGER:: IJK
+    INTEGER:: nSizeI, nSizeJ, nSizeK
+    INTEGER:: IF_lcross
+    INTEGER:: IF_adv_1, IF_adv_2
+    INTEGER:: n_r
+    
+    INTEGER:: I_R0_r, J_R0_r
+    
+    INTEGER:: i_SIl, i_SJl, i_SKl
+    INTEGER:: i_SA, i_SB
+    INTEGER:: n_A, n_B
+    INTEGER:: i_AdvA, i_AdvB
+    INTEGER:: i_Stemp
+
+
+    
+!!!!!MPI rnum
+!!!!   I_RO_r J_R0_r K_R0_r:  cut right hand side
+!!!!			num of nabour cell (inner)
+
+
+!	algorithm: to determine S, Adv, bgn, end for every direction
+
+!	I.	S & adv in IJK dir of Left
+		i_SIl = I-Ibgn+1
+		i_SJl = J-Jbgn+1
+		i_SKl = K-Kbgn+1
+
+!	II. S & adv in A B direction (this surface)
+		if (IJK == 1) then
+			i_SA = i_SJl; i_SB = i_SKl
+			n_A = nSizeJ; n_B = nSizeK
+		endif
+		if (IJK == 2) then
+			i_SA = i_SIl; i_SB = i_SKl
+			n_A = nSizeI; n_B = nSizeK
+		endif
+		if (IJK == 3) then
+			i_SA = i_SIl; i_SB = i_SJl
+			n_A = nSizeI; n_B = nSizeJ
+		endif
+		i_AdvA = IF_adv_1;  i_AdvB = IF_adv_2
+		if (IF_lcross) then
+			i_Stemp = i_SA; i_SA=i_SB; i_SB=i_Stemp
+			i_Stemp = n_A; n_A=n_B; n_B=i_Stemp
+			i_AdvA = IF_adv_2; i_AdvB = IF_adv_1
+		endif
+
+!	III. calc I J K
+		if (i_AdvA == 0) then
+			I_R0_r = i_SA
+		else
+			I_R0_r = n_A + 1 - i_SA
+		endif
+		if (i_AdvB == 0) then
+			J_R0_r = i_SB
+		else
+			J_R0_r = n_B + 1 - i_SB
+		endif
+
+!	IV. storage location
+	!Assume DO J=... DO I=...
+		n_r = (J_R0_r-1)*n_A + I_R0_r
+
+
+!!!!!!!!!!!!!!!!!!1
+END SUBROUTINE BC_SETmpirnum
+
+
+
+
+	  

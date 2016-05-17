@@ -1,0 +1,505 @@
+subroutine Connectivity_Physicsdata
+    use Global
+    implicit none
+!    include 'mpif.h'
+    integer :: iblock,ic, i,j,k,iL,jL,kL, &
+          &     istart,jstart,kstart, iend,jend,kend,  & 
+          &     iadd,jadd,kadd,ilen,jlen,klen,ibuf,jbuf,kbuf, &
+          &     is,js,ks,ivir,jvir,kvir,iadd1,jadd1,kadd1,iadd2,jadd2,kadd2,&
+          &     NTargetB,NTargetConn, TargetProc,numGrid, COffset(3)
+    real :: dcita,sint,cost,tvx,tvy
+    integer :: Transform(3,3), NT(3), PerType
+    integer :: sendq,tag
+    type(ConnectivityStruct),pointer :: AConnect
+    real,allocatable :: bufs(:,:,:,:),bufr(:,:,:,:)
+    integer::revMatrix(3),TransformL(3),TransformT(3),lcross,IIadd,JJadd,KKadd
+    real::spc(3)
+!    do iblock=1, NBlock
+!       call pointerSet(iblock)
+    do iblock=1,Max_Block
+        call Global_SetPointers(iblock)
+    do ic=1, ThisBlock%nConnect
+     if(ThisBlock%AConnectivity(ic)%BCType==9)then
+!        write(*,*)"Connect",ThisBlock%NBlockGlobal,ThisBlock%ID_Present_Blk
+       AConnect=> ThisBlock%AConnectivity(ic)
+       NTargetB= AConnect%TargetBlock
+       NTargetConn= Aconnect%TargetConn
+       istart= AConnect%pointStart(1)  !! side range
+       jstart= AConnect%pointStart(2)
+       kstart= AConnect%pointStart(3)
+       iend  = AConnect%pointEnd(1)     !cell data, just N-1, not N!
+       jend  = AConnect%pointEnd(2)
+       kend  = AConnect%pointEnd(3)
+       iadd  =AConnect%CIJKadd(1)  !!
+       jadd  =AConnect%CIJKadd(2)
+       kadd  =AConnect%CIJKadd(3)
+       iadd1  =AConnect%CIJKadd1(1)  !!
+       jadd1  =AConnect%CIJKadd1(2)
+       kadd1  =AConnect%CIJKadd1(3)
+       iadd2  =AConnect%CIJKadd2(1)  !!
+       jadd2  =AConnect%CIJKadd2(2)
+       kadd2  =AConnect%CIJKadd2(3)
+
+       ilen= iend-istart+1
+       jlen= jend-jstart+1
+       klen= kend-kstart+1
+       allocate(bufs(36,ilen,jlen,klen))
+       do k=kstart, kend
+       do j=jstart, jend
+       do i=istart, iend
+         is= i+iadd
+         js= j+jadd
+         ks= k+kadd
+         ibuf= i-istart+1
+         jbuf= j-jstart+1
+         kbuf= k-kstart+1
+         bufs(1,ibuf,jbuf,kbuf)= V(1,is,js,ks)
+         bufs(2,ibuf,jbuf,kbuf)= V(2,is,js,ks)
+         bufs(3,ibuf,jbuf,kbuf)= V(3,is,js,ks)
+         bufs(4,ibuf,jbuf,kbuf)= V(4,is,js,ks)
+         bufs(5,ibuf,jbuf,kbuf)= V(5,is,js,ks)
+         bufs(6,ibuf,jbuf,kbuf)= V(6,is,js,ks)
+         bufs(7,ibuf,jbuf,kbuf)= V(7,is,js,ks)
+         bufs(8,ibuf,jbuf,kbuf)= PP(is,js,ks)
+         bufs(9,ibuf,jbuf,kbuf)= T(is,js,ks)
+         bufs(10,ibuf,jbuf,kbuf)= Rmiu(is,js,ks)
+         is= i+iadd1
+         js= j+jadd1
+         ks= k+kadd1
+         bufs(11,ibuf,jbuf,kbuf)= V(1,is,js,ks)
+         bufs(12,ibuf,jbuf,kbuf)= V(2,is,js,ks)
+         bufs(13,ibuf,jbuf,kbuf)= V(3,is,js,ks)
+         bufs(14,ibuf,jbuf,kbuf)= V(4,is,js,ks)
+         bufs(15,ibuf,jbuf,kbuf)= V(5,is,js,ks)
+         bufs(16,ibuf,jbuf,kbuf)= V(6,is,js,ks)
+         bufs(17,ibuf,jbuf,kbuf)= V(7,is,js,ks)
+         bufs(18,ibuf,jbuf,kbuf)= PP(is,js,ks)
+         bufs(19,ibuf,jbuf,kbuf)= T(is,js,ks)
+         bufs(20,ibuf,jbuf,kbuf)= Rmiu(is,js,ks)
+         is= i+iadd2
+         js= j+jadd2
+         ks= k+kadd2
+         bufs(21,ibuf,jbuf,kbuf)= V(1,is,js,ks)
+         bufs(22,ibuf,jbuf,kbuf)= V(2,is,js,ks)
+         bufs(23,ibuf,jbuf,kbuf)= V(3,is,js,ks)
+         bufs(24,ibuf,jbuf,kbuf)= V(4,is,js,ks)
+         bufs(25,ibuf,jbuf,kbuf)= V(5,is,js,ks)
+         bufs(26,ibuf,jbuf,kbuf)= V(6,is,js,ks)
+         bufs(27,ibuf,jbuf,kbuf)= V(7,is,js,ks)
+         bufs(28,ibuf,jbuf,kbuf)= PP(is,js,ks)
+         bufs(29,ibuf,jbuf,kbuf)= T(is,js,ks)
+         bufs(30,ibuf,jbuf,kbuf)= Rmiu(is,js,ks)
+
+         bufs(31,ibuf,jbuf,kbuf)= shock(i+iadd,j+jadd,k+kadd)
+         bufs(32,ibuf,jbuf,kbuf)= shock(i+iadd1,j+jadd1,k+kadd1)
+         bufs(33,ibuf,jbuf,kbuf)= shock(i+iadd2,j+jadd2,k+kadd2)
+        
+         is=i+iadd; js=j+jadd;  ks=k+kadd
+         bufs(34,ibuf,jbuf,kbuf)=Rds(1,is,js,ks)
+         bufs(35,ibuf,jbuf,kbuf)=Rds(2,is,js,ks)
+         bufs(36,ibuf,jbuf,kbuf)=Rds(3,is,js,ks)
+        
+       enddo
+       enddo
+       enddo
+
+       TargetProc= PBlock(NTargetB)-1  !! -1 mean actual proc index
+       tag= NTargetB*100+ NTargetConn  !! so NTargetConn<100
+       numGrid=36*ilen* jLen* kLen
+       call MPI_IBSend(bufs,numGrid,MPI_REAL,TargetProc,tag,MPI_COMM_WORLD, sendq, ierr)
+       call MPI_Wait(sendq, status, ierr)
+       
+       deallocate(bufs)
+      endif
+    enddo
+    enddo
+     !! receive data and set ghost cell value
+!    do iblock=1, NBlock
+!      call pointerSet(iblock)
+    do iblock=1,Max_Block
+        call Global_SetPointers(iblock)
+    do ic=1, ThisBlock%nConnect
+     if(ThisBlock%AConnectivity(ic)%BCType==9)then
+       AConnect=> ThisBlock%AConnectivity(ic)
+       NTargetB= AConnect%TargetBlock
+
+      !! pointRange at this block
+       istart= AConnect%pointStart(1)
+       jstart= AConnect%pointStart(2)
+       kstart= AConnect%pointStart(3)
+       iend  = AConnect%pointEnd(1)
+       jend  = AConnect%pointEnd(2)
+       kend  = AConnect%pointEnd(3)
+       iadd  = AConnect%CEIJKadd(1)  !!
+       jadd  = AConnect%CEIJKadd(2)
+       kadd  = AConnect%CEIJKadd(3)
+       iadd1  = AConnect%CEIJKadd1(1)  !!
+       jadd1  = AConnect%CEIJKadd1(2)
+       kadd1  = AConnect%CEIJKadd1(3)
+       iadd2  = AConnect%CEIJKadd2(1)  !!
+       jadd2  = AConnect%CEIJKadd2(2)
+       kadd2  = AConnect%CEIJKadd2(3)
+ 
+       PerType= AConnect%PerType
+       dcita = AConnect%rotateAngle(1)
+       sint= sin(dcita)
+       cost= cos(dcita)
+       
+       TransformT=AConnect%TransformT
+       iLen= AConnect%TPLijk(1)!+TransformT(1)-1
+       jLen= AConnect%TPLijk(2)!+TransformT(2)-1
+       kLen= AConnect%TPLijk(3)!+TransformT(3)-1
+       allocate(bufR(36,iLen,jLen,kLen))
+       targetProc= PBlock(NTargetB)-1  !! -1 mean actual proc index
+!       tag= (iblock+NblockStart-1)*100+ ic
+       tag=ThisBlock%NBlockGlobal*100+ic
+       numGrid=36*iLen* jLen* kLen
+       call MPI_Recv(bufr,numGrid,MPI_REAL,targetProc,tag,MPI_COMM_WORLD,status,ierr)  ! ,recvq
+        
+        revMatrix=AConnect%revMatrix
+        TransformL=AConnect%Transform
+        TransformT=AConnect%TransformT
+        lcross=AConnect%lcross
+        IIadd=Iend-Istart+2
+        JJadd=Jend-Jstart+2
+        KKadd=Kend-Kstart+2
+      do k=kstart, kend
+      do j=jstart, jend
+      do i=istart, iend
+         iL=i-istart+1
+         jL=j-jstart+1
+         kL=k-kstart+1
+            iL=revMatrix(1)*IIadd+(1-2*revMatrix(1))*iL
+            jL=revMatrix(2)*JJadd+(1-2*revMatrix(2))*jL
+            kL=revMatrix(3)*KKadd+(1-2*revMatrix(3))*kL
+            call IJKStartEnd(iL,jL,kL,Is,Js,Ks,TransformL,TransformT,lcross)
+        ivir= i+iadd
+        jvir= j+jadd
+        kvir= k+kadd
+        V(1,ivir,jvir,kvir)= bufr(1,is,js,ks)
+        V(2,ivir,jvir,kvir)= bufr(2,is,js,ks)
+        tvx= bufr(3,is,js,ks)
+        tvy= bufr(4,is,js,ks)
+        V(3,ivir,jvir,kvir)= tvx*cost+ tvy*sint
+        V(4,ivir,jvir,kvir)=-tvx*sint+ tvy*cost
+        V(5,ivir,jvir,kvir)= bufr(5,is,js,ks)
+        V(6,ivir,jvir,kvir)= bufr(6,is,js,ks)
+        V(7,ivir,jvir,kvir)= bufr(7,is,js,ks)
+        PP(ivir,jvir,kvir)= bufr(8,is,js,ks)
+        T(ivir,jvir,kvir) = bufr(9,is,js,ks)
+        Rmiu(ivir,jvir,kvir) = bufr(10,is,js,ks)
+        ivir= i+iadd1
+        jvir= j+jadd1
+        kvir= k+kadd1
+        V(1,ivir,jvir,kvir)= bufr(11,is,js,ks)
+        V(2,ivir,jvir,kvir)= bufr(12,is,js,ks)
+        tvx= bufr(13,is,js,ks)
+        tvy= bufr(14,is,js,ks)
+        V(3,ivir,jvir,kvir)= tvx*cost+ tvy*sint
+        V(4,ivir,jvir,kvir)=-tvx*sint+ tvy*cost
+        V(5,ivir,jvir,kvir)= bufr(15,is,js,ks)
+        V(6,ivir,jvir,kvir)= bufr(16,is,js,ks)
+        V(7,ivir,jvir,kvir)= bufr(17,is,js,ks)
+        PP(ivir,jvir,kvir)= bufr(18,is,js,ks)
+        T(ivir,jvir,kvir) = bufr(19,is,js,ks)
+        Rmiu(ivir,jvir,kvir) = bufr(20,is,js,ks)
+        ivir= i+iadd2
+        jvir= j+jadd2
+        kvir= k+kadd2
+        V(1,ivir,jvir,kvir)= bufr(21,is,js,ks)
+        V(2,ivir,jvir,kvir)= bufr(22,is,js,ks)
+        tvx= bufr(23,is,js,ks)
+        tvy= bufr(24,is,js,ks)
+        V(3,ivir,jvir,kvir)= tvx*cost+ tvy*sint
+        V(4,ivir,jvir,kvir)=-tvx*sint+ tvy*cost
+        V(5,ivir,jvir,kvir)= bufr(25,is,js,ks)
+        V(6,ivir,jvir,kvir)= bufr(26,is,js,ks)
+        V(7,ivir,jvir,kvir)= bufr(27,is,js,ks)
+        PP(ivir,jvir,kvir)= bufr(28,is,js,ks)
+        T(ivir,jvir,kvir) = bufr(29,is,js,ks)
+        Rmiu(ivir,jvir,kvir) = bufr(30,is,js,ks)
+!            if(ThisBlock%NBlockGlobal==1.and.ic==6)then
+!                write(*,*)i+iadd,j+jadd,k+kadd,V(3,i+iadd,j+jadd,k+kadd)!,T(i+iadd,j+jadd,k+kadd)
+!                write(*,*)i+iadd1,j+jadd1,k+kadd1,V(3,i+iadd1,j+jadd1,k+kadd1)!,T(i+iadd1,j+jadd1,k+kadd1)
+                
+!                write(*,*)is,js,ks
+!                write(*,*)Rds(is,ivir,jvir,kvir),RDs(js,ivir,jvir,kvir),RDs(ks,ivir,jvir,kvir)
+!            endif  
+        shock(i+iadd,j+jadd,k+kadd)=bufr(31,is,js,ks)
+        shock(i+iadd1,j+jadd1,k+kadd1)=bufr(32,is,js,ks)
+        shock(i+iadd2,j+jadd2,k+kadd2)=bufr(33,is,js,ks)
+        spc(1)=bufr(34,is,js,ks)
+        spc(2)=bufr(35,is,js,ks)
+        spc(3)=bufr(36,is,js,ks)
+        call IJKStartEnd(1,2,3,Is,Js,Ks,TransformL,TransformT,lcross)
+        ivir=i+iadd;    jvir=j+jadd;    kvir=k+kadd
+        RDs(is,ivir,jvir,kvir)=spc(1)
+        RDs(js,ivir,jvir,kvir)=spc(2)
+        RDs(ks,ivir,jvir,kvir)=spc(3)
+        
+      enddo
+      enddo
+      enddo
+
+      deallocate(bufr)
+    endif
+    enddo
+    enddo
+end subroutine
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! transform cell gradient in the cell and interface middle value ib-1,im+1, etc
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine Connectivity_GradientAndValue
+    use Global
+    implicit none
+!    include 'mpif.h'
+    integer :: iblock,ic, i,j,k,LL,iL,jL,kL, &
+        &   istart,jstart,kstart,  iend,jend,kend,  &               
+        &   iadd,jadd,kadd, Siadd,Sjadd,Skadd, &               
+        &   is,js,ks,ivir,jvir,kvir,isid,jsid,ksid, &
+        &   ilen,jlen,klen,ibuf,jbuf,kbuf,&
+        &   NTargetB,NTargetConn,numGrid,TargetProc,&
+        &   IJKDir
+    real :: tvx,tvy,dcita,sint,cost,sin2t,cos2t,sct, &
+        &   ugx,ugy,ugz, vgx,vgy,vgz, wgx,wgy,wgz
+    integer :: Transform(3,3), NT(3), PerType
+    type(ConnectivityStruct),pointer :: AConnect
+    real,allocatable :: bufs(:,:,:,:),bufr(:,:,:,:)
+    integer :: sendq,tag
+    integer::revMatrix(3),TransformL(3),TransformT(3),lcross,IIadd,JJadd,KKadd
+    ! write(*,*) MyProc,'begin isend data....'
+    ! call MPI_Barrier(MPI_COMM_WORLD,ierr)
+    !! wrap data and Isend to target block
+!    do iblock=1, NBlock
+!       call pointerSet(iblock)
+    do iblock=1,Max_Block
+        call Global_SetPointers(iblock)
+
+    do ic=1, ThisBlock%nConnect
+     if(ThisBlock%AConnectivity(ic)%BCType==9)then
+       AConnect=> ThisBlock%AConnectivity(ic)
+       NTargetB= AConnect%TargetBlock
+       NTargetConn= AConnect%TargetConn
+
+      !! pointRange at this block
+       istart= AConnect%pointStart(1)
+       jstart= AConnect%pointStart(2)
+       kstart= AConnect%pointStart(3)
+       iend  = AConnect%pointEnd(1)
+       jend  = AConnect%pointEnd(2)
+       kend  = AConnect%pointEnd(3)
+       iadd  = AConnect%CIJKadd(1)  !! inner cell center
+       jadd  =AConnect%CIJKadd(2)
+       kadd  = AConnect%CIJKadd(3)
+       ilen= iend-istart+1
+       jlen= jend-jstart+1
+       klen= kend-kstart+1
+       allocate(bufs(18,ilen,jlen,klen))
+       do k=kstart, kend
+       do j=jstart, jend
+       do i=istart, iend
+         ibuf= i-istart+1
+         jbuf= j-jstart+1
+         kbuf= k-kstart+1
+         is= i+iadd
+         js= j+jadd
+         ks= k+kadd
+         do LL=1,18
+             bufs(LL, ibuf,jbuf,kbuf)=DqDxyz(LL,is,js,ks)
+         enddo
+       enddo
+       enddo
+       enddo
+
+       TargetProc= PBlock(NTargetB)-1  !! -1 mean actual proc index
+       tag= NTargetB*100+ NTargetConn  !! so NTargetConn<100
+       numGrid=18*iLen* jLen* kLen
+       ! write(*,*) 'iSend',MyProc,ic,targetProc+1,tag,numGrid
+       call MPI_IBSend(bufs,numGrid,MPI_REAL,TargetProc,tag,MPI_COMM_WORLD, sendq, ierr)
+       call MPI_Wait(sendq,status, ierr)
+       deallocate(bufs)
+     endif
+     enddo
+     enddo
+    !! receive data and set ghost cell value
+!    do iblock=1, NBlock
+!      call pointerSet(iblock)
+    do iblock=1,Max_Block
+        call Global_SetPointers(iblock)
+    do ic=1,ThisBlock%nConnect
+      if(ThisBlock%AConnectivity(ic)%BCType==9)then
+       AConnect=> ThisBlock%AConnectivity(ic)
+       NTargetB= AConnect%TargetBlock
+       !! pointRange at this block
+       istart= AConnect%pointStart(1)
+       jstart= AConnect%pointStart(2)
+       kstart= AConnect%pointStart(3)
+       iend  = AConnect%pointEnd(1)
+       jend  = AConnect%pointEnd(2)
+       kend  = AConnect%pointEnd(3)
+       iadd  = AConnect%CEIJKadd(1)  !!
+       jadd  = AConnect%CEIJKadd(2)
+       kadd  = AConnect%CEIJKadd(3)
+       Siadd=AConnect%IJKadd(1)
+       Sjadd=AConnect%IJKadd(2)
+       Skadd=AConnect%IJKadd(3)
+      IJKDir=AConnect%IJKDirect
+       
+       PerType= AConnect%PerType
+       dcita= AConnect%rotateAngle(1)
+       sint= sin(dcita)
+       cost= cos(dcita)
+       sin2t= sint*sint
+       cos2t= cost*cost
+       sct = sint*cost
+       
+       TransformT=AConnect%TransformT
+       iLen= AConnect%TPLijk(1)!+TransformT(1)-1
+       jLen= AConnect%TPLijk(2)!+TransformT(2)-1
+       kLen= AConnect%TPLijk(3)!+TransformT(3)-1
+       allocate(bufR(18,iLen,jLen,kLen))
+       targetProc= PBlock(NTargetB)-1  !! -1 mean actual proc index
+ !      tag= (iblock+NblockStart-1)*100+ ic
+       tag=ThisBlock%NBlockGlobal*100+ic
+       numGrid=18*iLen*jLen*kLen
+       call MPI_Recv(bufr,numGrid,MPI_REAL,targetProc,tag,MPI_COMM_WORLD,status,ierr)
+
+        revMatrix=AConnect%revMatrix
+        TransformL=AConnect%Transform
+        TransformT=AConnect%TransformT
+        lcross=AConnect%lcross
+        IIadd=Iend-Istart+2
+        JJadd=Jend-Jstart+2
+        KKadd=Kend-Kstart+2
+
+      do k=kstart, kend
+      do j=jstart, jend
+      do i=istart, iend
+         iL=i-istart+1
+         jL=j-jstart+1
+         kL=k-kstart+1
+    
+        iL=revMatrix(1)*IIadd+(1-2*revMatrix(1))*iL
+        jL=revMatrix(2)*JJadd+(1-2*revMatrix(2))*jL
+        kL=revMatrix(3)*KKadd+(1-2*revMatrix(3))*kL
+        call IJKStartEnd(iL,jL,kL,Is,Js,Ks,TransformL,TransformT,lcross)
+        
+        ivir= i+iadd
+        jvir= j+jadd
+        kvir= k+kadd
+        ugx= bufR(1, is,js,ks)
+        ugy= bufR(2, is,js,ks)
+        ugz= bufR(3, is,js,ks)
+
+        vgx= bufR(4,is,js,ks)
+        vgy= bufR(5,is,js,ks)
+        vgz= bufR(6,is,js,ks)
+
+        wgx= bufR(7,is,js,ks)
+        wgy= bufR(8,is,js,ks)
+        wgz= bufR(9,is,js,ks)
+
+        dQdxyz(1,ivir,jvir,kvir)=ugx
+        dQdxyz(2,ivir,jvir,kvir)=cost*ugy+sint*ugz
+        dQdxyz(3,ivir,jvir,kvir)=-sint*ugy+cost*ugz
+        dQdxyz(4,ivir,jvir,kvir)=cost*vgx+sint*wgx
+        dQdxyz(5,ivir,jvir,kvir)=cos2t*vgy+sct*(vgz+wgy)+sin2t*wgz
+        dQdxyz(6,ivir,jvir,kvir)=cos2t*vgz+sct*(-vgy+wgz)-sin2t*wgy
+        dQdxyz(7,ivir,jvir,kvir)=-sint*vgx+cost*wgx
+        dQdxyz(8,ivir,jvir,kvir)=-sin2t*vgz+sct*(-vgy+wgz)+cos2t*wgy
+        dQdxyz(9,ivir,jvir,kvir)=sin2t*vgy+sct*(vgz+wgy)+cos2t*wgz
+        do LL=3,5
+            DqDxyz(3*LL+1,ivir,jvir,kvir)=bufR(3*LL+1,is,js,ks)
+            ugy= bufR(3*LL+2,is,js,ks)
+            ugz= bufR(3*LL+3,is,js,ks)
+            DqDxyz(3*LL+2,ivir,jvir,kvir)=ugy*cost+ugz*sint
+            DqDxyz(3*LL+3,ivir,jvir,kvir)=-ugy*sint+ugz*cost
+        enddo
+      enddo
+      enddo
+      enddo
+
+      deallocate(bufr)
+     endif
+    enddo
+    enddo
+
+end subroutine
+
+subroutine GhostToAll
+    use Global
+    implicit none
+    integer::iblock,NI,NJ,NK,I,J,K
+
+
+    do iblock=1,Max_Block
+        call Global_SetPointers(iblock)
+        NI=ThisBlock%NI
+        NJ=ThisBlock%NJ
+        NK=ThisBlock%NK
+
+      do k=1,NK-1  !! init the ghost cell grid
+      do j=1,NJ-1
+        i=1
+        V(1,i-1,j,k)= V(1,i,j,k)
+        V(2,i-1,j,k)= V(2,i,j,k)
+        V(3,i-1,j,k)= V(3,i,j,k)
+        V(4,i-1,j,k)= V(4,i,j,k)
+        V(5,i-1,j,k)= V(5,i,j,k)
+        V(6,i-1,j,k)= V(6,i,j,k)
+        V(7,i-1,j,k)= V(7,i,j,k)
+        i=NI-1
+        V(1,i+1,j,k)= V(1,i,j,k)
+        V(2,i+1,j,k)= V(2,i,j,k)
+        V(3,i+1,j,k)= V(3,i,j,k)
+        V(4,i+1,j,k)= V(4,i,j,k)
+        V(5,i+1,j,k)= V(5,i,j,k)
+        V(6,i+1,j,k)= V(6,i,j,k)
+        V(7,i+1,j,k)= V(7,i,j,k)
+      enddo
+      enddo
+      do k=1,NK-1
+      do i=0,NI
+        j=1
+        V(1,i,j-1,k)= V(1,i,j,k)
+        V(2,i,j-1,k)= V(2,i,j,k)
+        V(3,i,j-1,k)= V(3,i,j,k)
+        V(4,i,j-1,k)= V(4,i,j,k)
+        V(5,i,j-1,k)= V(5,i,j,k)
+        V(6,i,j-1,k)= V(6,i,j,k)
+        V(7,i,j-1,k)= V(7,i,j,k)
+        j=NJ-1
+        V(1,i,j+1,k)= V(1,i,j,k)
+        V(1,i,j+1,k)= V(1,i,j,k)
+        V(1,i,j+1,k)= V(1,i,j,k)
+        V(1,i,j+1,k)= V(1,i,j,k)
+        V(1,i,j+1,k)= V(1,i,j,k)
+        V(1,i,j+1,k)= V(1,i,j,k)
+        V(1,i,j+1,k)= V(1,i,j,k)
+      enddo
+      enddo
+      do j=0,NJ
+      do i=0,NI
+        k=1
+        V(1,i,j,k-1)= V(1,i,j,k)
+        V(2,i,j,k-1)= V(2,i,j,k)
+        V(3,i,j,k-1)= V(3,i,j,k)
+        V(4,i,j,k-1)= V(4,i,j,k)
+        V(5,i,j,k-1)= V(5,i,j,k)
+        V(6,i,j,k-1)= V(6,i,j,k)
+        V(7,i,j,k-1)= V(7,i,j,k)
+        k=NK-1
+        V(1,i,j,k+1)= V(1,i,j,k)
+        V(2,i,j,k+1)= V(2,i,j,k)
+        V(3,i,j,k+1)= V(3,i,j,k)
+        V(4,i,j,k+1)= V(4,i,j,k)
+        V(5,i,j,k+1)= V(5,i,j,k)
+        V(6,i,j,k+1)= V(6,i,j,k)
+        V(7,i,j,k+1)= V(7,i,j,k)
+      enddo
+      enddo
+
+      enddo
+
+endsubroutine

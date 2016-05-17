@@ -1,0 +1,127 @@
+subroutine BC_Inlet(ibc,sweep)
+    USE Global
+    IMPLICIT NONE
+    integer:: Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,i,j,k,l
+    integer:: sweep,Kindsub_BC
+    integer::iBC,is,js,ks,il,jl,kl,iadd,jadd,kadd,iadd1,jadd1,kadd1,iadd2,jadd2,kadd2,&
+        &   Eiadd,Ejadd,Ekadd,Eiadd1,Ejadd1,Ekadd1,Eiadd2,Ejadd2,Ekadd2
+    type(ConnectivityStruct),pointer :: Aconnect    
+    real:: mach,comm,PsIn,TsIn,Roin,asonic,Vabs,VxInlet,VyInlet,VzInlet
+    real::RmiuIn,TT,den,Vxi,Vyi,Vzi
+
+        AConnect=>ThisBlock%AConnectivity(ibc)
+        Ibgn=AConnect%PointStart(1)
+        Jbgn=AConnect%PointStart(2)
+        Kbgn=AConnect%PointStart(3)
+        Iend=AConnect%PointEnd(1)
+        Jend=AConnect%PointEnd(2)
+        Kend=AConnect%PointEnd(3)
+        iadd=AConnect%CIJKAdd(1)
+        jadd=AConnect%CIJKAdd(2)
+        kadd=AConnect%CIJKAdd(3)
+        iadd1=AConnect%CIJKAdd1(1)
+        jadd1=AConnect%CIJKAdd1(2)
+        kadd1=AConnect%CIJKAdd1(3)
+        iadd2=AConnect%CIJKAdd2(1)
+        jadd2=AConnect%CIJKAdd2(2)
+        kadd2=AConnect%CIJKAdd2(3)
+        Eiadd=AConnect%CEIJKAdd(1)
+        Ejadd=AConnect%CEIJKAdd(2)
+        Ekadd=AConnect%CEIJKAdd(3)
+        Eiadd1=AConnect%CEIJKAdd1(1)
+        Ejadd1=AConnect%CEIJKAdd1(2)
+        Ekadd1=AConnect%CEIJKAdd1(3)
+        Eiadd2=AConnect%CEIJKAdd2(1)
+        Ejadd2=AConnect%CEIJKAdd2(2)
+        Ekadd2=AConnect%CEIJKAdd2(3)
+
+    if(sweep==-1)then
+        do k=Kbgn,Kend
+        do j=Jbgn,Jend
+        do i=Ibgn,Iend
+            is=i+iadd;  js=j+jadd;  ks=k+kadd
+            il=i+Eiadd; jl=j+Ejadd; kl=k+Ekadd
+ 
+            PsIn=PP(is,js,ks)
+            PsIn=min(PsIn,0.999*P0In)   !limit Ps 
+            comm=max(1.0,(P0in/Psin)**(1.0/3.5))
+!            comm=(P0in/Psin)**(1.0/3.5)
+            mach=sqrt((comm-1.0)*2/0.4)
+            TsIn=T0in/comm
+            Roin=RXM2*PsIn/TsIn
+            asonic=sqrt(1.4*PsIn/RoIn)
+            Vabs=mach*asonic
+            VxInlet=Vabs
+            VyInlet=omega(1)*(Zc(is,js,ks))
+            VzInlet=-omega(1)*Yc(is,js,ks)
+            
+            den=V(1,is,js,ks)
+            Vxi=V(2,is,js,ks)/Den
+            Vyi=V(3,is,js,ks)/den
+            Vzi=V(4,is,js,ks)/den
+        
+            V(1,il,jl,kl)=Roin
+            V(2,il,jl,kl)=Roin*VxInlet
+            V(3,il,jl,kl)=Roin*VyInlet
+            V(4,il,jl,kl)=RoIn*VzInlet
+!            V(2,il,jl,kl)=Roin*(2.0*VxInlet-Vxi)
+!            V(3,il,jl,kl)=Roin*(2.0*VyInlet-Vyi)
+!            V(4,il,jl,kl)=Roin*(2.0*VzInlet-Vzi)
+            V(5,il,jl,kl)=PsIn/0.4+0.5*(V(2,il,jl,kl)**2.0+V(3,il,jl,kl)**2.0+V(4,il,jl,kl)**2.0)/RoIn- &
+                        &   0.5*(omega(1)*rad(il,jl,kl))**2.0*Roin
+            PP(il,jl,kl)=PsIn
+            T(il,jl,kl)=TsIn
+            Rds(1:3,il,jl,kl)=Rds(1:3,is,js,ks)
+        
+            is=i+Eiadd;  js=j+Ejadd;  ks=k+Ekadd
+            il=i+Eiadd1; jl=j+Ejadd1; kl=k+Ekadd1
+            V(1:5,il,jl,kl)=V(1:5,is,js,ks)
+            PP(il,jl,kl)=PsIn
+            T(il,jl,kl)=TsIn
+
+            il=i+Eiadd2; jl=j+Ejadd2; kl=k+Ekadd2
+            V(1:5,il,jl,kl)=V(1:5,is,js,ks)
+            PP(il,jl,kl)=PsIn
+            T(il,jl,kl)=TsIn
+
+            if(IF_turb)then
+!                is=i+iadd;  js=j+jadd;  ks=k+kadd
+                il=i+Eiadd; jl=j+Ejadd; kl=k+Ekadd
+
+                TT=T(il,jl,kl)
+                RmiuIn=(1.0+Csthlnd)/(TT*Csth1+Csthlnd)*(Csth1*TT)**1.5
+                Rmiu(il,jl,kl)=VisRatio*RmiuIn 
+                Den=V(1,il,jl,kl)
+                V(6,il,jl,kl)=1.5*FSTI*FSTI*Den
+                V(7,il,jl,kl)=V(6,il,jl,kl)/(Rmiu(il,jl,kl)+tiny)*Den
+    
+                is=i+Eiadd;  js=j+Ejadd;  ks=k+Ekadd
+                il=i+Eiadd1; jl=j+Ejadd1; kl=k+Ekadd1
+                V(6:7,il,jl,kl)=V(6:7,is,js,ks)
+                Rmiu(il,jl,kl)=Rmiu(is,js,ks)
+
+                is=i+Eiadd;  js=j+Ejadd;  ks=k+Ekadd
+                il=i+Eiadd2; jl=j+Ejadd2; kl=k+Ekadd2
+                V(6:7,il,jl,kl)=V(6:7,is,js,ks)
+                Rmiu(il,jl,kl)=Rmiu(is,js,ks)
+             endif
+        enddo
+        enddo
+        enddo
+    elseif(sweep==0)then
+        do K=Kbgn,Kend
+        do J=Jbgn,Jend
+        do I=Ibgn,Iend
+            is=i+iadd;  js=j+jadd;  ks=k+kadd
+            il=i+Eiadd; jl=j+Ejadd; kl=k+Ekadd
+            do L=1,18
+                DqDxyz(L,il,jl,kl)=DqDxyz(L,is,js,ks)
+            enddo
+        enddo
+        enddo
+        enddo
+    endif
+        
+END SUBROUTINE BC_Inlet
+
+

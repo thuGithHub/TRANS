@@ -1,0 +1,544 @@
+subroutine BC_NormDir(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,Out_n)
+implicit none
+    integer::Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+    real::out_n
+    
+    if(Ibgn==Iend.and.Ibgn==1)  Out_n=-1.0
+    if(Ibgn==Iend.and.Ibgn.ne.1)  Out_n=1.0
+    if(Jbgn==Jend.and.Jbgn==1)  Out_n=-1.0
+    if(Jbgn==Jend.and.Jbgn.ne.1)  Out_n=1.0
+    if(Kbgn==Kend.and.Kbgn==1)  Out_n=-1.0
+    if(Kbgn==Kend.and.Kbgn.ne.1)    Out_n=1.0
+end subroutine
+
+SUBROUTINE BC_SETIJK(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,  Nblkbc,  IJK,MinorMax,Out_n)
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER:: Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+    INTEGER:: Nblkbc
+    INTEGER:: IJK,MinorMax
+    REAL:: Out_n
+
+    INTEGER:: NI1,NJ1,NK1
+    INTEGER:: ID_Present_Blk
+    
+    NI1=ThisBlock%NI1
+    NJ1=ThisBlock%NJ1
+    NK1=ThisBlock%NK1
+    ID_Present_Blk=ThisBlock%ID_Present_Blk
+    
+!check 
+	     if( (Ibgn == Iend .and. Jbgn == Jend) .or. (Ibgn == Iend .and. Kbgn == Kend) .or. (Jbgn == Jend .and. Kbgn == Kend)	 ) THEN
+              !  write(*,*) "Wrong input I/J/K in blk: ", ID_Present_Blk
+	!		  write(*,*) "Num_Block: ",Nblkbc,Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+	     !     pause
+	     endif
+	     if((Ibgn /= Iend).and.(Jbgn /= Jend).and. (Kbgn /= Kend))Then
+                write(*,*) "Wrong input I/J/K in blk: ", ID_Present_Blk
+			  write(*,*) "Num_Block: ", Nblkbc
+                write(*,*) "B&E must be equal at any direction!"
+	          pause
+	     endif
+
+!set opions
+
+		 if ( Ibgn == Iend .and. Ibgn == 1  ) then
+	          IJK  =  1;		 MinorMax = 0;          Out_n = -1.
+	     endif
+		 if ( Ibgn == Iend .and. Ibgn == NI1) then
+	          IJK  =  1;		 MinorMax = 1;          Out_n = +1.
+	     endif
+		 if ( Jbgn == Jend .and. Jbgn == 1  ) then
+	          IJK  =  2;		 MinorMax = 0;          Out_n = -1.
+	     endif
+		 if ( Jbgn == Jend .and. Jbgn == NJ1) then
+	          IJK  =  2;		 MinorMax = 1;          Out_n = +1.
+	     endif
+		 if ( Kbgn == Kend .and. Kbgn == 1  ) then
+	          IJK  =  3;		 MinorMax = 0;          Out_n = -1.
+	     endif
+		 if ( Kbgn == Kend .and. Kbgn == NK1) then
+	          IJK  =  3;		 MinorMax = 1;          Out_n = +1.
+	     endif
+END SUBROUTINE BC_SETIJK
+
+
+
+
+
+SUBROUTINE BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)!by dzw05,20121113
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER:: I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,  I,J,K
+    INTEGER:: I_L1,J_L1,K_L1,I_R1,J_R1,K_R1
+    INTEGER:: I_L2,J_L2,K_L2,I_R2,J_R2,K_R2
+    INTEGER:: IJK,MinorMax
+
+    INTEGER:: NI,NJ,NK
+    INTEGER:: NI1,NJ1,NK1
+    INTEGER:: I_step,J_step,K_step
+    
+    NI=ThisBlock%NI
+    NJ=ThisBlock%NJ
+    NK=ThisBlock%NK
+    NI1=ThisBlock%NI1
+    NJ1=ThisBlock%NJ1
+    NK1=ThisBlock%NK1
+
+!    set LR nums
+!	L0: num of ghost cell (center)
+!	R0: num of nabour cell (center)
+
+		 I_L0 = I;  J_L0 = J;  K_L0 = K
+		 I_R0 = I;  J_R0 = J;  K_R0 = K
+
+!		 I direction
+	     if(IJK ==1 )then
+	        if(MinorMax == 0)then
+	           I_L0 =  0
+        
+	           I_R0 =  1
+	        else
+	           I_L0 = NI
+	        
+	           I_R0 = NI1
+	        endif
+	     endif
+!
+!		 J direction
+	     if(IJK ==2 )then
+	        if(MinorMax == 0)then
+	           J_L0 =  0
+
+                 J_r0 = 1
+	        else
+	           J_L0 = NJ
+
+  	           J_r0 = NJ1
+	  	    endif
+	     endif
+
+!		 K direction
+	     if(IJK ==3 )then
+	        if(MinorMax == 0)then
+	           K_L0 =  0
+
+	           K_R0 =  1
+	        else
+	           K_L0 = NK
+	        
+	           K_R0 = NK1
+	        endif
+	     endif
+
+!higher order boundary, by dzw05,20121113
+        I_step=I_R0-I_L0;  J_step=J_R0-J_L0;  K_step=K_R0-K_L0    
+		
+		I_L1=I_L0-I_step;  J_L1=J_L0-J_step;  K_L1=K_L0-K_step
+		I_R1=I_R0+I_step;  J_R1=J_R0+J_step;  K_R1=K_R0+K_step
+		
+		I_L2=I_L1-I_step;  J_L2=J_L1-J_step;  K_L2=K_L1-K_step
+		I_R2=I_R1+I_step;  J_R2=J_R1+J_step;  K_R2=K_R1+K_step
+END SUBROUTINE BC_SETlrnum
+
+
+
+
+SUBROUTINE BC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R,     Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, Ib_r, Ie_r, Jb_r, Je_r, Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2  , &
+    &                   I_R0_r, J_R0_r, K_R0_r,I_R1_r, J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r)
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER::  I,J,K
+    INTEGER::  IJK_L,IJK_R, MinorMax_R
+    INTEGER::  Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, Ib_r, Ie_r, Jb_r, Je_r, Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2  
+    INTEGER::  I_R0_r, J_R0_r, K_R0_r
+    INTEGER::  I_R1_r, J_R1_r, K_R1_r
+    INTEGER::  I_R2_r, J_R2_r, K_R2_r
+    
+    INTEGER:: i_SIl,i_SJl,i_SKl
+    INTEGER:: i_SA, i_SB
+    INTEGER:: i_AdvA, i_AdvB, i_Stemp
+    INTEGER:: i_SIr,i_SJr,i_SKr
+    INTEGER:: i_AdvIr, i_AdvJr, i_AdvKr
+    
+!!!!   I_RO_r J_R0_r K_R0_r:  cut right hand side
+!!!!			num of nabour cell (inner)
+
+!	algorithm: to determine S, Adv, bgn, end for every direction
+
+!	I.	S & adv in IJK dir of Left
+		i_SIl = I-Ibgn+1
+		i_SJl = J-Jbgn+1
+		i_SKl = K-Kbgn+1
+
+!	II. S & adv in A B direction (this surface)
+		if (IJK_l == 1) then
+			i_SA = i_SJl; i_SB = i_SKl
+		endif
+		if (IJK_l == 2) then
+			i_SA = i_SIl; i_SB = i_SKl
+		endif
+		if (IJK_l == 3) then
+			i_SA = i_SIl; i_SB = i_SJl
+		endif
+		i_AdvA = IF_adv_1;  i_AdvB = IF_adv_2
+		if (IF_lcross) then
+			i_Stemp = i_SA; i_SA=i_SB; i_SB=i_Stemp
+			i_AdvA = IF_adv_2; i_AdvB = IF_adv_1
+		endif
+
+!	III. S & adv in IJK dir of right side
+		if (IJK_r == 1) then
+			i_SIr = 1;  i_SJr = i_SA;   i_SKr = i_SB
+			i_AdvIr=0;  i_AdvJr=i_AdvA; i_AdvKr=i_AdvB
+		endif
+		if (IJK_r == 2) then
+			i_SJr = 1;  i_SIr = i_SA;   i_SKr = i_SB
+			i_AdvJr=0;  i_AdvIr=i_AdvA; i_AdvKr=i_AdvB
+		endif
+		if (IJK_r == 3) then
+			i_SKr = 1;  i_SIr = i_SA;   i_SJr = i_SB
+			i_AdvKr=0;  i_AdvIr=i_AdvA; i_AdvJr=i_AdvB
+		endif
+
+!	IV. calc I J K
+		if (i_AdvIr == 0) then
+			I_R0_r = Ib_r - 1 + i_SIr
+		else
+			I_R0_r = Ie_r + 1 - i_SIr
+		endif
+		if (i_AdvJr == 0) then
+			J_R0_r = Jb_r - 1 + i_SJr
+		else
+			J_R0_r = Je_r + 1 - i_SJr
+		endif
+		if (i_AdvKr == 0) then
+			K_R0_r = Kb_r - 1 + i_SKr
+		else
+			K_R0_r = Ke_r + 1 - i_SKr
+		endif
+
+
+! in fact these are not needed for now (for SIr == 1 in this direction)
+		if (IJK_r == 1) then
+			if (MinorMax_r == 0) then
+				I_R0_r = 1
+			else
+				I_R0_r = Ib_r  ! NI1 in that block
+			endif
+		endif
+		if (IJK_r == 2) then
+			if (MinorMax_r == 0) then
+				J_R0_r = 1
+			else
+				J_R0_r = Jb_r  ! NJ1 in that block
+			endif
+		endif
+		if (IJK_r == 3) then
+			if (MinorMax_r == 0) then
+				K_R0_r = 1
+			else
+				K_R0_r = Kb_r  ! NK1 in that block
+			endif
+		endif
+
+
+        !for high orders  by dzw05
+		I_R1_r=I_R0_r;  J_R1_r=J_R0_r;  K_R1_r=K_R0_r
+		I_R2_r=I_R0_r;  J_R2_r=J_R0_r;  K_R2_r=K_R0_r
+
+		if (IJK_r == 1) then
+			if (MinorMax_r == 0) then
+				I_R0_r = 1
+				I_R1_r = 2
+				I_R2_r = 3
+			else
+				I_R0_r = Ib_r  ! NI1 in that block
+				I_R1_r = Ib_r-1
+				I_R2_r = Ib_r-2
+			endif
+		endif
+		if (IJK_r == 2) then
+			if (MinorMax_r == 0) then
+				J_R0_r = 1
+				J_R1_r = 2
+				J_R2_r = 3
+			else
+				J_R0_r = Jb_r  ! NJ1 in that block
+				J_R1_r = Jb_r-1
+				J_R2_r = Jb_r-2
+			endif
+		endif
+		if (IJK_r == 3) then
+			if (MinorMax_r == 0) then
+				K_R0_r = 1
+				K_R1_r = 2
+				K_R2_r = 3
+			else
+				K_R0_r = Kb_r  ! NK1 in that block
+				K_R1_r = Kb_r-1
+				K_R2_r = Kb_r-2
+			endif
+		endif
+END SUBROUTINE BC_SETP2Prnum
+
+
+
+
+
+
+SUBROUTINE VBC_SETrIJK(Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r,   IJK_r,MinorMax_r)
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER:: Ib_r,Ie_r,Jb_r,Je_r,Kb_r,Ke_r
+    !INTEGER:: Nblkbc
+    INTEGER:: IJK_r,MinorMax_r
+
+    INTEGER:: ID_Present_Blk
+    
+    ID_Present_Blk=ThisBlock%ID_Present_Blk
+    
+!		right hand side index
+
+
+	     if( (Ib_r == Ie_r .and. Jb_r == Je_r) .or. (Ib_r == Ie_r .and. Jb_r == Ke_r) .or. (Jb_r == Je_r .and. Kb_r == Ke_r)	 ) THEN
+                write(*,*) "Wrong input I/J/K (L) at p2p BC in blk: ",id_present_blk
+	          pause
+	     endif
+	     if((Ib_r /= Ie_r).and.(Jb_r /= Je_r).and. (Kb_r /= Ke_r))Then
+                write(*,*) "Wrong input I/J/K (R) at p2p BC in blk: ",id_present_blk
+                write(*,*) "B&E must be equal at any direction!"  !, Nblkbc
+	          pause
+	     endif
+
+		! for VL,VR dimension
+		if(Ib_r .eq. Ie_r) then
+			IJK_r=1
+			if(Ib_r == 1) then
+				MinorMax_r = 0
+			else
+				MinorMax_r = 1
+			endif
+		endif
+		if(Jb_r .eq. Je_r) then
+			IJK_r=2
+			if(Jb_r == 1) then
+				MinorMax_r = 0
+			else
+				MinorMax_r = 1
+			endif
+		endif
+		if(Kb_r .eq. Ke_r) then
+			IJK_r=3
+			if(Kb_r == 1) then
+				MinorMax_r = 0
+			else
+				MinorMax_r = 1
+			endif
+		endif
+
+END SUBROUTINE VBC_SETrIJK
+
+
+
+
+
+SUBROUTINE VBC_SETlrnum    (I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,    &
+        &            I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1,   &
+        &            I,J,K,  IJK,MinorMax)
+
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER:: I_L0,J_L0,K_L0,I_R0,J_R0,K_R0
+    INTEGER:: I_L1,J_L1,K_L1,I_R1,J_R1,K_R1
+    INTEGER:: I_L2,J_L2,K_L2,I_R2,J_R2,K_R2
+    INTEGER:: I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1
+    INTEGER:: I,J,K
+    INTEGER:: IJK,MinorMax
+
+!    set LR nums
+!	L0: num of ghost cell (center)      0-NI
+!	R0: num of nabour cell (center)		1-NI1
+!	VR0: for VL, surf between ghost cell and nabour cell    1-NI
+!	VL0: for VL, surf outside ghost cell					0-NI+1
+
+    CALL  BC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)
+
+		 I_VL0 = I_L0;  J_VL0 = J_L0;  K_VL0 = K_L0
+		 I_VR0 = I_R0;  J_VR0 = J_R0;  K_VR0 = K_R0
+
+		 I_VR1 = I_R0;  J_VR1 = J_R0;  K_VR1 = K_R0 !2
+
+
+          if(MinorMax == 1)then   !VL(NI) <-> V(NI1)
+			if(IJK == 1 )then
+	           I_VL0 = I_VL0+1
+	           I_VR0 = I_VR0+1
+			endif
+			if(IJK == 2 )then
+	           J_VL0 = J_VL0+1
+	           J_VR0 = J_VR0+1
+			endif
+			if(IJK == 3 )then
+	           K_VL0 = K_VL0+1
+	           K_VR0 = K_VR0+1
+			endif
+          else
+			if(IJK == 1 )then
+			   I_VR1 = I_VR1+1
+			endif
+			if(IJK == 2 )then
+			   J_VR1 = J_VR1+1
+			endif
+			if(IJK == 3 )then
+			   K_VR1 = K_VR1+1
+			endif
+	    endif
+
+END SUBROUTINE VBC_SETlrnum
+
+
+
+
+
+
+
+SUBROUTINE VBC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R, &
+    &     Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, Ib_r, Ie_r, Jb_r, Je_r, Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2  , &
+    &                   I_R0_r, J_R0_r, K_R0_r,I_R1_r, J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r,     &
+    &               I_VL0_r, J_VL0_r, K_VL0_r,  I_VR0_r, J_VR0_r, K_VR0_r, I_VR1_r, J_VR1_r, K_VR1_r)
+
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER::  I,J,K
+    INTEGER::  IJK_L,IJK_R, MinorMax_R
+    INTEGER::  Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, Ib_r, Ie_r, Jb_r, Je_r, Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2  
+    INTEGER::  I_R0_r, J_R0_r, K_R0_r
+    INTEGER::  I_R1_r, J_R1_r, K_R1_r
+    INTEGER::  I_R2_r, J_R2_r, K_R2_r
+    
+    INTEGER::  I_VL0_r, J_VL0_r, K_VL0_r
+    INTEGER::  I_VR0_r, J_VR0_r, K_VR0_r
+    INTEGER::  I_VR1_r, J_VR1_r, K_VR1_r
+
+    INTEGER:: i_SIl,i_SJl,i_SKl
+    INTEGER:: i_SA, i_SB
+    INTEGER:: i_AdvA, i_AdvB, i_Stemp
+    INTEGER:: i_SIr,i_SJr,i_SKr
+    INTEGER:: i_AdvIr, i_AdvJr, i_AdvKr
+
+!!!!   I_RO_r J_R0_r K_R0_r:  cut right hand side
+!!!!			num of nabour cell (inner)
+!!!!   I_VRO_r J_VR0_r K_VR0_r:  cut right hand side
+!!!!			num of nabour cell (inner) for VL, VR
+!!!!   I_VR1_r J_VR1_r K_VR1_r:  one surface into the cell
+
+!		include '..\bc\bc_SETP2Prnum.for'
+        CALL BC_SETP2Prnum(I,J,K,  IJK_L,IJK_R,MinorMax_R,     Ibgn, Iend, Jbgn, Jend, Kbgn, Kend, Ib_r, Ie_r, Jb_r, Je_r, Kb_r, Ke_r, IF_lcross,  IF_adv_1,   IF_adv_2  , &
+    &                   I_R0_r, J_R0_r, K_R0_r,I_R1_r, J_R1_r, K_R1_r,I_R2_r, J_R2_r, K_R2_r)
+
+		 I_VL0_r = I_R0_r;  J_VL0_r = J_R0_r;  K_VL0_r = K_R0_r
+        
+		 I_VR0_r = I_R0_r;  J_VR0_r = J_R0_r;  K_VR0_r = K_R0_r
+		 ! VR1: when MinorMax = 0, VR0=1, VR1=2
+		 I_VR1_r = I_R0_r;  J_VR1_r = J_R0_r;  K_VR1_r = K_R0_r
+
+          if(MinorMax_r == 1)then   !VL(NI) <-> V(NI1)
+			if(IJK_r == 1 )then
+	           I_VL0_r = I_VL0_r+2
+	           I_VR0_r = I_VR0_r+1
+			endif
+			if(IJK_r == 2 )then
+	           J_VL0_r = J_VL0_r+2
+	           J_VR0_r = J_VR0_r+1
+			endif
+			if(IJK_r == 3 )then
+	           K_VL0_r = K_VL0_r+2
+	           K_VR0_r = K_VR0_r+1
+			endif
+          else
+			if(IJK_r == 1 )then
+			   I_VL0_r = I_VL0_r-1
+			   I_VR1_r = I_VR1_r+1
+			endif
+			if(IJK_r == 2 )then
+			   J_VL0_r = J_VL0_r-1
+			   J_VR1_r = J_VR1_r+1
+			endif
+			if(IJK_r == 3 )then
+			   K_VL0_r = K_VL0_r-1
+			   K_VR1_r = K_VR1_r+1
+			endif
+	     endif
+
+END SUBROUTINE VBC_SETP2Prnum
+
+
+
+
+SUBROUTINE BC_SETIJK_Ghost(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,  I,J,K,  IJK,MinorMax)!by ydd for ghost cell index of physical boundary, non-match point
+    Use Global
+    IMPLICIT NONE
+    
+    INTEGER:: I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,  I,J,K
+    INTEGER:: I_L1,J_L1,K_L1,I_R1,J_R1,K_R1
+    INTEGER:: I_L2,J_L2,K_L2,I_R2,J_R2,K_R2
+    INTEGER:: IJK,MinorMax
+
+    INTEGER:: NI,NJ,NK
+    INTEGER:: NI1,NJ1,NK1
+    INTEGER:: I_step,J_step,K_step
+    
+    NI=ThisBlock%NI
+    NJ=ThisBlock%NJ
+    NK=ThisBlock%NK
+    NI1=ThisBlock%NI1
+    NJ1=ThisBlock%NJ1
+    NK1=ThisBlock%NK1
+
+!    set LR nums
+		 I_L0 = I;  J_L0 = J;  K_L0 = K
+		 I_R0 = I;  J_R0 = J;  K_R0 = K
+!		 I direction
+	     if(IJK ==1 )then
+	        if(MinorMax == 0)then
+	           I_L0 =  0
+	           I_R0 =  1
+	        else
+	           I_L0 = NI+1
+	           I_R0 = NI
+	        endif
+	     endif
+!		 J direction
+	     if(IJK ==2 )then
+	        if(MinorMax == 0)then
+	           J_L0 =  0
+               J_r0 = 1
+	        else
+	           J_L0 = NJ+1
+  	           J_r0 = NJ
+	  	    endif
+	     endif
+!		 K direction
+	     if(IJK ==3 )then
+	        if(MinorMax == 0)then
+	           K_L0 =  0
+	           K_R0 =  1
+	        else
+	           K_L0 = NK+1
+	           K_R0 = NK
+	        endif
+	     endif
+!higher order boundary, by dzw05,20121113
+        I_step=I_R0-I_L0;  J_step=J_R0-J_L0;  K_step=K_R0-K_L0    
+		I_L1=I_L0-I_step;  J_L1=J_L0-J_step;  K_L1=K_L0-K_step
+		I_R1=I_R0+I_step;  J_R1=J_R0+J_step;  K_R1=K_R0+K_step
+		I_L2=I_L1-I_step;  J_L2=J_L1-J_step;  K_L2=K_L1-K_step
+		I_R2=I_R1+I_step;  J_R2=J_R1+J_step;  K_R2=K_R1+K_step
+END SUBROUTINE BC_SETIJK_Ghost

@@ -1,0 +1,304 @@
+SUBROUTINE BC_Inlet(Ibgn,Iend,Jbgn,Jend,Kbgn,Kend,Kindsub_BC ,sweep,IJK,minormax)
+    USE Global
+    IMPLICIT NONE
+    
+    INTEGER:: Ibgn,Iend,Jbgn,Jend,Kbgn,Kend
+    INTEGER:: sweep,Kindsub_BC
+    INTEGER:: IJK, MinorMax
+
+    INTEGER:: I,J,K,L
+
+    INTEGER:: I_L0,I_L1,I_L2
+    INTEGER:: J_L0,J_L1,J_L2
+    INTEGER:: K_L0,K_L1,K_L2
+    INTEGER:: I_R0,I_R1,I_R2
+    INTEGER:: J_R0,J_R1,J_R2
+    INTEGER:: K_R0,K_R1,K_R2
+    
+    INTEGER:: I_VL0,J_VL0,K_VL0
+    INTEGER:: I_VR0,I_VR1
+    INTEGER:: J_VR0,J_VR1
+    INTEGER:: K_VR0,K_VR1
+    
+!    REAL:: Sout1,Sout2,Sout3
+ !   REAL:: Den,Vxi,Vyi,Vzi,Vc1,VXFi,VYFi,VZFi,P2
+ !   REAL:: Dnx,Dny,Dnz
+    REAL:: PP0,Den0,Vx0,Vy0,Vz0,TT0
+    REAL:: delta1,delta2,delta,Prantal,Delta_BLT,dist
+!    REAL:: dir
+    REAL:: distin(401),Vxin(401),Vyin(401),Vzin(401)
+    real:: mach,comm,PsIn,TsIn,Roin,asonic,Vabs,VxInlet,VyInlet,VzInlet,gammaIn
+    real::UU,VV,WW,QQ,RmiuIn,TT
+    integer::iend1,jend1,kend1
+
+   
+!-----added by ydd
+        if(sweep==-2)then
+          DO K=Kbgn,Kend
+          DO J=Jbgn,Jend
+          DO I=Ibgn,Iend
+
+        CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2, &
+        &         I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,I_VR1,J_VR1,K_VR1,I,J,K,IJK,MinorMax)
+        
+               Vol(I_l0,J_l0,K_l0)=Vol(I_r0,J_r0,K_r0) 
+               Dst(I_l0,J_l0,K_l0)=Dst(I_r0,J_r0,K_r0) 
+               Alagm(IJK,I_l0,J_l0,K_l0)=Alagm(IJK,I_r0,J_r0,K_r0) 
+               Vol(I_l1,J_l1,K_l1)=Vol(I_r0,J_r0,K_r0) 
+               Dst(I_l1,J_l1,K_l1)=Dst(I_r0,J_r0,K_r0) 
+               Alagm(IJK,I_l1,J_l1,K_l1)=Alagm(IJK,I_r0,J_r0,K_r0)
+ 
+!               SD(IJK,1,I_l0,J_l0,K_l0)=SD(IJK,1,I_r0,J_r0,K_r0) 
+!               SD(IJK,2,I_l0,J_l0,K_l0)=SD(IJK,2,I_r0,J_r0,K_r0) 
+!               SD(IJK,3,I_l0,J_l0,K_l0)=SD(IJK,3,I_r0,J_r0,K_r0) 
+                rad(I_l0,J_l0,K_l0)=rad(I_r0,J_r0,K_r0)
+                rad(I_l1,J_l1,K_l1)=rad(I_r0,J_r0,K_r0)
+                rad(I_l2,J_l2,K_l2)=rad(I_r0,J_r0,K_r0)
+                thtc(I_l0,J_l0,K_l0)=thtc(I_r0,J_r0,K_r0)
+                thtc(I_l1,J_l1,K_l1)=thtc(I_r0,J_r0,K_r0)
+                thtc(I_l2,J_l2,K_l2)=thtc(I_r0,J_r0,K_r0)
+                do L=1,3        
+                    SD(IJK,L,I_VL0,J_VL0,K_VL0)=2.0*SD(IJK,L,I_VR0,J_VR0,K_VR0)-SD(IJK,L,I_VR1,J_VR1,K_VR1)
+                enddo
+!               thtf(IJK,I_VL0,J_Vl0,K_Vl0)=thtf(IJK,I_VR0,J_VR0,K_VR0)
+!                    XX(I_VL0,J_VL0,K_VL0)=2.0*XX(I_VR0,J_VR0,K_VR0)-XX(I_VR1,J_VR1,K_VR1) 
+!                    YY(I_VL0,J_VL0,K_VL0)=2.0*YY(I_VR0,J_VR0,K_VR0)-YY(I_VR1,J_VR1,K_VR1) 
+!                    ZZ(I_VL0,J_VL0,K_VL0)=2.0*ZZ(I_VR0,J_VR0,K_VR0)-ZZ(I_VR1,J_VR1,K_VR1) 
+        enddo
+        enddo
+        enddo
+      endif
+!-------------------------------------------
+
+   if(Kindsub_BC==0)then    !non-turbomachinery inlet BC
+    OPEN(10,FILE='profile.dat',action='READ')  
+	rewind(10)
+	DO i=1,401
+	   
+	  read(10,*)distin(i),Vxin(i),Vyin(i),Vzin(i)
+
+	ENDDO
+    CLOSE(10)
+
+
+	  DO K=Kbgn,Kend
+      DO J=Jbgn,Jend
+	  DO I=Ibgn,Iend
+
+
+        CALL VBC_SETlrnum    (I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,    &
+        &            I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1,   &
+        &            I,J,K,  IJK,MinorMax)
+
+	  !0: VL in side surf (as BC)
+	  !1: VL(Dq is in center, do in Boundary_blk001) in ghost cell(VL outside surf) and connect
+	  !2: VL,VR in side(use external to replace internal, external is original VL on surface) 
+	  !   and  Connect in Vexternal?
+
+	  ! need to know in which dir: I,J,K, only one side neded
+	  ! all VL, VR:  I dir, Jend&Kend+1 but what about cut?
+
+
+     DO L=1,400
+        
+	 delta1=dst(I_VR0,J_VR0,K_VR0)-distin(L)
+     delta2=distin(L+1)-dst(I_VR0,J_VR0,K_VR0)
+	 delta=delta1*delta2	  
+	
+	if (delta >=0.) then
+      Vx0 =(Vxin(L)*delta2+Vxin(L+1)*delta1)/(delta1+delta2)
+	exit
+	endif
+
+	enddo
+
+       Prantal=0.72
+       Delta_BLT=Prantal**(-1./3.)/1.026*Delta_BL
+       TT0=1.
+
+       if(dst(I_VR0,J_VR0,K_VR0) <=delta_BLT) then
+       dist=dst(I_VR0,J_VR0,K_VR0)/delta_BLT
+       TT0=Wall_Temp/Tinf+(1.-Wall_Temp/Tinf)*dist*(1.5-0.5*dist*dist)
+       endif
+
+!       PP0=1./1.4/Xm/Xm
+!       XM2 =Xm*Xm
+!	   RXM2=XM2*1.4_8
+!       Den0 = RXM2*PP0/TT0
+	   
+
+       IF (sweep == -1) then
+
+    
+        V(1,I_l0,J_l0,K_l0 ) = Den0   ! gas state function
+        V(2,I_l0,J_l0,K_l0 ) = Vx0*V(1,I_l0,J_l0,K_l0 )   
+        V(3,I_l0,J_l0,K_l0 ) = Vy0*V(1,I_l0,J_l0,K_l0 )
+        V(4,I_l0,J_l0,K_l0 ) = Vz0*V(1,I_l0,J_l0,K_l0 )
+        PP(I_l0,J_l0,K_l0)   = PP0
+        T (I_l0,J_l0,K_l0)   = TT0
+
+        V(1,I_l1,J_l1,K_l1 ) =  Den0   ! gas state function
+        V(2,I_l1,J_l1,K_l1 ) =  Vx0*V(1,I_l1,J_l1,K_l1 )   
+	    V(3,I_l1,J_l1,K_l1 ) =  Vy0*V(1,I_l1,J_l1,K_l1 )
+	    V(4,I_l1,J_l1,K_l1 ) =  Vz0*V(1,I_l1,J_l1,K_l1 )
+        PP(I_l1,J_l1,K_l1)   =  PP0
+        T (I_l1,J_l1,K_l1)   =  TT0
+
+      V(1,I_l2,J_l2,K_l2 ) = Den0   ! gas state function
+      V(2,I_l2,J_l2,K_l2 ) = Vx0*V(1,I_l2,J_l2,K_l2 )   
+	  V(3,I_l2,J_l2,K_l2 ) = Vy0*V(1,I_l2,J_l2,K_l2 )
+	  V(4,I_l2,J_l2,K_l2 ) = Vz0*V(1,I_l2,J_l2,K_l2 )
+      PP(I_l2,J_l2,K_l2)   = PP0
+      T (I_l2,J_l2,K_l2)   = TT0
+
+      endif  
+	  ENDDO
+	  ENDDO
+	  ENDDO
+   endif 
+   
+   if(Kindsub_BC.ne.0)then !turbomachinery inlet boundary, given T0,P0,flow angles and Ma inlet.
+    gammaIn=1.4
+    if(sweep==-1)then
+        do k=Kbgn,Kend
+        do j=Jbgn,Jend
+        do i=Ibgn,Iend
+     
+            CALL VBC_SETlrnum    (I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,    &
+            &            I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1,   &
+            &            I,J,K,  IJK,MinorMax)
+            !comm=1.0+(gammaIn-1.0)/2.0*mach*mach!        
+            PsIn=PP(I_R0,J_R0,K_R0)
+            comm=max(1.0,(P0in/Psin)**(1.0/3.5))
+            mach=sqrt((comm-1.0)*2/(gammaIn-1.))
+            TsIn=T0in/comm
+            Roin=RXM2*PsIn/TsIn
+            asonic=sqrt(1.4*PsIn/RoIn)
+            Vabs=mach*asonic
+            VxInlet=Vabs
+            VyInlet=omega(1)*Zc(i,j,k)
+            VzInlet=-omega(1)*Yc(i,j,k)
+    
+            V(1,I_l0,J_l0,K_l0)=Roin
+            V(2,I_l0,J_l0,K_l0)=Roin*VxInlet
+            V(3,I_l0,J_l0,K_l0)=Roin*VyInlet
+            V(4,I_l0,J_l0,K_l0)=Roin*VzInlet
+            V(5,I_l0,J_l0,K_l0)=PsIn/(gammaIn-1.0)+0.5*Roin*Vabs*Vabs-0.5*(omega(1)*rad(I_r0,J_r0,K_r0))**2.0*Roin
+            PP(I_l0,J_l0,K_l0)=PsIn
+            T(I_l0,J_l0,K_l0)=TsIn
+        
+            V(1,I_l1,J_l1,K_l1)=V(1,I_l0,J_l0,K_l0)
+            V(2,I_l1,J_l1,K_l1)=V(2,I_l0,J_l0,K_l0)
+            V(3,I_l1,J_l1,K_l1)=V(3,I_l0,J_l0,K_l0)
+            V(4,I_l1,J_l1,K_l1)=V(4,I_l0,J_l0,K_l0)
+            V(5,I_l1,J_l1,K_l1)=V(5,I_l0,J_l0,K_l0)
+            PP(I_l1,J_l1,K_l1)=PsIn
+            T(I_l1,J_l1,K_l1)=TsIn
+
+            V(1,I_l2,J_l2,K_l2)=V(1,I_l1,J_l1,K_l1)
+            V(2,I_l2,J_l2,K_l2)=V(2,I_l1,J_l1,K_l1)
+            V(3,I_l2,J_l2,K_l2)=V(3,I_l1,J_l1,K_l1)
+            V(4,I_l2,J_l2,K_l2)=V(4,I_l1,J_l1,K_l1)
+            V(5,I_l2,J_l2,K_l2)=V(5,I_l1,J_l1,K_l1)!0.5*(omega(1)*rad(I_r1,J_r1,K_r1))**2.0*Roin
+            PP(I_l2,J_l2,K_l2)=PsIn
+            T(I_l2,J_l2,K_l2)=TsIn
+
+            if(IF_turb)then
+                TT=T(I_l0,J_l0,K_l0)
+                RmiuIn=(1.0+Csthlnd)/(TT*Csth1+Csthlnd)*(Csth1*TT)**1.5
+                Rmiu(I_l0,J_l0,K_l0)=VisRatio*RmiuIn 
+                V(6,I_l0,J_l0,K_l0)=1.5*FSTI*FSTI*V(1,I_l0,J_l0,K_l0)    !Rkf
+                V(7,I_l0,J_l0,K_l0)=V(6,I_l0,J_l0,K_l0)/(Rmiu(I_l0,J_l0,K_l0)+tiny)*V(1,I_l0,J_l0,K_l0)
+                V(6,I_l1,J_l1,K_l1)=V(6,I_l0,J_l0,K_l0)
+                V(7,I_l1,J_l1,K_l1)=V(7,I_l0,J_l0,K_l0)
+                Rmiu(I_l1,J_l1,K_l1)=Rmiu(I_l0,J_l0,K_l0)
+             endif
+        enddo
+        enddo
+        enddo
+    elseif(sweep==0)then
+        do K=Kbgn,Kend
+        do J=Jbgn,Jend
+        do I=Ibgn,Iend
+            CALL VBC_SETlrnum(I_L0,J_L0,K_L0,I_R0,J_R0,K_R0,I_L1,J_L1,K_L1,I_R1,J_R1,K_R1,I_L2,J_L2,K_L2,I_R2,J_R2,K_R2,    &
+            &            I_VL0,J_VL0,K_VL0,   I_VR0,J_VR0,K_VR0,   I_VR1,J_VR1,K_VR1,I,J,K,  IJK,MinorMax)
+
+            do L=1,18
+                DqDxyz(L,I_l0,J_l0,K_l0)=DqDxyz(L,I_r0,J_r0,K_r0)
+            enddo
+        enddo
+        enddo
+        enddo
+    endif
+  endif
+        
+END SUBROUTINE BC_Inlet
+
+
+SUBROUTINE BC_InletBOND(XM,  P2,RR,Vxi,Vyi,Vzi,DNx,DNy,DNz, VXFi,VYFi,VZFi,      PP0,RR0,VX0,VY0,VZ0,  dir)
+    IMPLICIT NONE
+    
+    REAL:: XM
+    REAL:: P2,RR,Vxi,Vyi,Vzi,DNx,DNy,DNz
+    REAL:: PP0,RR0,VX0,VY0,VZ0
+    REAL:: VXFi,VYFi,VZFi
+    REAL:: dir
+    
+    REAL:: AF,AE,QNE,QNF,RF,RE,QN,AS,SON,QTX,QTY,QTZ
+
+        AF=1./XM
+        AE=SQRT(1.4*P2/RR)
+        QNE=VXi*DNX+VYi*DNY+VZi*DNZ
+        QNF=VXFi*DNX+VYFi*DNY+VZFi*DNZ
+        RF=QNF-5.*AF
+        RE=QNE+5.*AE
+        QN=0.5*(RE+RF)
+        AS=0.1*(RE-RF)
+        
+        IF(QN>-AS.AND.QN<0.)THEN
+          SON=1./1.4/(XM*XM)
+          QTX=VXFi-QNF*DNX
+          QTY=VYFi-QNF*DNY
+          QTZ=VZFi-QNF*DNZ
+          VX0=QTX+QN*DNX
+          VY0=QTY+QN*DNY
+          VZ0=QTZ+QN*DNZ
+          RR0=(AS*AS/SON/1.4)**2.5
+          PP0= AS*AS*RR0/1.4
+          
+          dir=-1.
+        ENDIF
+        IF(QN>=0..AND.QN<AS)THEN
+          SON=P2/RR**1.4
+          QTX=VXi-QNE*DNX
+          QTY=VYi-QNE*DNY
+          QTZ=VZi-QNE*DNZ
+          VX0=QTX+QN*DNX
+          VY0=QTY+QN*DNY
+          VZ0=QTZ+QN*DNZ
+          RR0=(AS*AS/SON/1.4)**2.5
+          PP0= AS*AS*RR0/1.4
+          
+          dir=1.
+        ENDIF
+        IF(QN<=-AS)THEN
+          VX0=VXFi
+          VY0=VYFi
+          VZ0=VZFi
+          RR0=1.0
+          PP0=1./1.4/XM/Xm
+          
+          dir=-1.
+        ENDIF
+        IF(QN>=AS)THEN
+          VX0=VXi
+          VY0=VYi
+          VZ0=VZi
+          RR0=RR
+          PP0=P2
+          
+          dir=1.
+        ENDIF
+        
+END SUBROUTINE BC_InletBOND
+
